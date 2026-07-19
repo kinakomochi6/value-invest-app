@@ -2,25 +2,32 @@ import { db } from "@/lib/firebaseAdmin";
 import { calculatePyo, calculateValueScore, calculateTargetPrice, checkBsAnomaly } from "@/lib/valueLogic";
 import BsChart from "@/components/BsChart";
 import Link from "next/link";
+import type { StockRecord } from "@/lib/types";
+
+const displayValue = (value: unknown, fallback = "-") => {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string" || typeof value === "number") return value;
+  return String(value);
+};
 
 // 簡易的なテーブル行を作るための部品
-const InfoRow = ({ label, value }: { label: string, value: string | number }) => (
-  <tr className="border-b border-gray-100"><th className="py-2 px-3 bg-gray-50 text-gray-600 font-normal w-1/2 text-left">{label}</th><td className="py-2 px-3 font-medium text-right">{value}</td></tr>
+const InfoRow = ({ label, value }: { label: string, value: unknown }) => (
+  <tr className="border-b border-gray-100"><th className="py-2 px-3 bg-gray-50 text-gray-600 font-normal w-1/2 text-left">{label}</th><td className="py-2 px-3 font-medium text-right">{displayValue(value)}</td></tr>
 );
 
 // Firebaseの特殊な日付データを、ただの文字（YYYY/MM/DD）に変換する関数
-const formatDate = (val: any) => {
+const formatDate = (val: unknown) => {
   if (!val) return '-';
   if (val && typeof val === 'object' && '_seconds' in val) {
-    return new Date(val._seconds * 1000).toLocaleDateString('ja-JP');
+    return new Date((val as { _seconds: number })._seconds * 1000).toLocaleDateString('ja-JP');
   }
   return String(val);
 };
 
 // ★★★ 新規追加：Streamlit版の独自JSON並び順ロジックを完全再現する関数 ★★★
-function getOrderedRawData(data: any) {
+function getOrderedRawData(data: StockRecord) {
   const rawKeys = Object.keys(data);
-  const orderedData: any = {};
+  const orderedData: StockRecord = {};
   
   // 1. 【優先】★で始まる項目（企業名、業種、資産合計、負債合計、純資産合計など）をアルファベット順
   const starKeys = rawKeys.filter(k => k.startsWith('★')).sort();
@@ -54,17 +61,17 @@ export default async function CompanyDetail({ params }: { params: Promise<{ code
     );
   }
 
-  const data: any = JSON.parse(JSON.stringify({ id: doc.id, ...doc.data() }));
+  const data: StockRecord = JSON.parse(JSON.stringify({ id: doc.id, ...doc.data() }));
   const pyoData = calculatePyo(data);
   const { score, messages } = calculateValueScore(data, pyoData);
-  const { status, targetPrice, dropRate } = calculateTargetPrice(data, score, pyoData);
+  const { status, targetPrice, dropRate } = calculateTargetPrice(data, score);
   const anomalies = checkBsAnomaly(data);
 
   // 指値シミュレーション用の計算関数
   const calcSimPrice = (targetPyo: number) => {
-    const currentPrice = data['株価'] || 0;
-    const marketCap = data['時価総額_億'] || 0;
-    const realNetAsset = pyoData['実質純資産'] || 0;
+    const currentPrice = typeof data['株価'] === "number" ? data['株価'] : 0;
+    const marketCap = typeof data['時価総額_億'] === "number" ? data['時価総額_億'] : 0;
+    const realNetAsset = typeof pyoData['実質純資産'] === "number" ? pyoData['実質純資産'] : 0;
     if (currentPrice > 0 && marketCap > 0 && realNetAsset > 0) {
       return Math.floor(currentPrice * ((targetPyo * realNetAsset) / marketCap));
     }
@@ -79,9 +86,9 @@ export default async function CompanyDetail({ params }: { params: Promise<{ code
       <Link href="/" className="text-blue-600 hover:underline font-bold mb-6 inline-block">← 全銘柄一覧に戻る</Link>
 
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-800">[{code}] {data['★企業名']}</h1>
+        <h1 className="text-4xl font-bold text-gray-800">[{code}] {displayValue(data['★企業名'])}</h1>
         <p className="text-gray-500 mt-2">
-          業種: {data['★業種'] || '-'} | 市場: {data['★市場区分'] || '-'} | 最終更新: {formatDate(data['データ最終更新日'])}
+          業種: {displayValue(data['★業種'])} | 市場: {displayValue(data['★市場区分'])} | 最終更新: {formatDate(data['データ最終更新日'])}
         </p>
       </div>
 
@@ -101,6 +108,14 @@ export default async function CompanyDetail({ params }: { params: Promise<{ code
             {messages.map((msg: string, i: number) => <li key={i}>{msg}</li>)}
           </ul>
         )}
+        {anomalies.length > 0 && (
+          <div className="mt-4 rounded border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+            <p className="font-bold">B/Sデータ確認</p>
+            <ul className="ml-5 mt-2 list-disc space-y-1">
+              {anomalies.map((msg, i) => <li key={i}>{msg}</li>)}
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* SECTION 1: サマリー */}
@@ -109,7 +124,7 @@ export default async function CompanyDetail({ params }: { params: Promise<{ code
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"><h3 className="text-sm text-gray-500 mb-1">P/與 (実質PBR)</h3><p className="text-3xl font-bold text-blue-600">{pyoData['P_與']} 倍</p></div>
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"><h3 className="text-sm text-gray-500 mb-1">実質純資産 (換金価値)</h3><p className="text-3xl font-bold text-gray-800">{pyoData['実質純資産']} 億円</p></div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"><h3 className="text-sm text-gray-500 mb-1">時価総額 (買収価格)</h3><p className="text-3xl font-bold text-gray-800">{data['時価総額_億'] || 0} 億円</p></div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"><h3 className="text-sm text-gray-500 mb-1">時価総額 (買収価格)</h3><p className="text-3xl font-bold text-gray-800">{displayValue(data['時価総額_億'], "0")} 億円</p></div>
       </div>
 
       <div className="bg-indigo-50 p-6 rounded-lg shadow-sm border border-indigo-100 mb-8">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebaseAdmin";
 import { calculatePyo, calculateValueScore, calculateTargetPrice } from "@/lib/valueLogic";
+import type { StockRecord } from "@/lib/types";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,12 +20,12 @@ export async function GET(request: NextRequest) {
     const companies = snapshot.docs.map((doc) => {
       // FirestoreのTimestamp等の特殊型をJSON安全な形に変換
       const raw = JSON.parse(JSON.stringify(doc.data()));
-      const data = { ...raw, id: doc.id };
+      const data: StockRecord = { ...raw, id: doc.id };
 
       try {
         const pyoData = calculatePyo(data);
         const { score } = calculateValueScore(data, pyoData);
-        const { status, targetPrice, dropRate } = calculateTargetPrice(data, score, pyoData);
+        const { status, targetPrice, dropRate } = calculateTargetPrice(data, score);
         return {
           code: doc.id,
           ...data,
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
           targetPrice,
           dropRate,
         };
-      } catch (e) {
+      } catch {
         // 計算エラーが起きても他銘柄への影響なく返す
         return { code: doc.id, ...data };
       }

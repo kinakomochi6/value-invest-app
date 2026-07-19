@@ -2,16 +2,17 @@
 
 import { useMemo, useCallback } from "react";
 import { AgGridReact } from "ag-grid-react";
-import { ModuleRegistry, AllCommunityModule, themeQuartz, CellClickedEvent } from "ag-grid-community";
+import { ModuleRegistry, AllCommunityModule, themeQuartz, CellClickedEvent, ColDef, ICellRendererParams } from "ag-grid-community";
 import { useRouter } from "next/navigation";
+import type { StockRecord } from "@/lib/types";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-export default function CompanyTable({ rowData }: { rowData: any[] }) {
+export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
   const router = useRouter();
 
   // コードセルのレンダラー：青いリンク風テキスト（クリックは onCellClicked で処理）
-  const CodeCellRenderer = useCallback((params: any) => {
+  const CodeCellRenderer = useCallback((params: ICellRendererParams<StockRecord>) => {
     return (
       <span style={{ color: "#2563eb", fontWeight: "bold", cursor: "pointer", textDecoration: "underline" }}>
         {params.value}
@@ -20,7 +21,7 @@ export default function CompanyTable({ rowData }: { rowData: any[] }) {
   }, []);
 
   // 購入判定セルのレンダラー
-  const StatusCellRenderer = useCallback((params: any) => {
+  const StatusCellRenderer = useCallback((params: ICellRendererParams<StockRecord>) => {
     const s = params.value;
     if (s === "✅購入水準")
       return <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: "9999px", fontSize: "12px", fontWeight: "bold" }}>{s}</span>;
@@ -32,11 +33,11 @@ export default function CompanyTable({ rowData }: { rowData: any[] }) {
   }, []);
 
   // スコアセルのレンダラー
-  const ScoreCellRenderer = useCallback((params: any) => {
+  const ScoreCellRenderer = useCallback((params: ICellRendererParams<StockRecord>) => {
     return <span style={{ fontWeight: "bold", color: "#2563eb" }}>{params.value ?? "-"} 点</span>;
   }, []);
 
-  const colDefs = useMemo<any[]>(
+  const colDefs = useMemo<ColDef<StockRecord>[]>(
     () => [
       {
         field: "code",

@@ -1,3 +1,5 @@
+import type { StockRecord } from "./types";
+
 // B/S項目の掛け目（MULTIPLIERS）
 export const MULTIPLIERS: Record<string, number> = {
   "流動_現金及び預金": 1, "流動_受取手形": 0.8, "流動_売掛金": 0.8, "流動_契約資産": 0.8,
@@ -12,26 +14,31 @@ export const MULTIPLIERS: Record<string, number> = {
   "投資_その他固定資産": 0.15, "純資_非支配株主持分": -1, "★負債合計": -1
 };
 
+const getNumber = (data: StockRecord, key: string) => {
+  const value = data[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+};
+
 // 1. P/與の計算
-export function calculatePyo(data: any) {
+export function calculatePyo(data: StockRecord) {
   let raw_adj_bs_asset = 0;
   for (const [key, multiplier] of Object.entries(MULTIPLIERS)) {
-    const val = data[key] || 0;
+    const val = getNumber(data, key);
     raw_adj_bs_asset += val * multiplier;
   }
   
-  const sec_profit = data['有価証券_含み益_億'] || 0;
+  const sec_profit = getNumber(data, '有価証券_含み益_億');
   const tax_deduction = sec_profit * 0.3;
   const adj_bs_asset = raw_adj_bs_asset - tax_deduction;
       
-  const market_val = data['不動産_時価_億'] || 0;
-  const book_val = data['不動産_簿価_億'] || 0;
+  const market_val = getNumber(data, '不動産_時価_億');
+  const book_val = getNumber(data, '不動産_簿価_億');
   let adj_re_val = 0;
   if (market_val > 0) {
     adj_re_val = market_val - (book_val * 0.15) - ((market_val - book_val) * 0.3);
   }
       
-  const market_cap = data['時価総額_億'] || 0;
+  const market_cap = getNumber(data, '時価総額_億');
   let bargain_degree = 0;
   if (market_cap > 0) {
     bargain_degree = (adj_bs_asset + adj_re_val) / market_cap;
@@ -54,15 +61,15 @@ export function calculatePyo(data: any) {
 }
 
 // 2. バリュースコアの計算（グラデーション採点版）
-export function calculateValueScore(data: any, pyoData: any) {
+export function calculateValueScore(data: StockRecord, pyoData: StockRecord) {
   let score = 0;
   const messages: string[] = [];
   const p_yo = pyoData["P_與"];
-  const pbr = data['PBR'] || 0;
-  const roe = data['ROE_pct'] || 0;
-  const real_estate_profit = data['不動産_含み益_億'] || 0;
-  const sec_profit = data['有価証券_含み益_億'] || 0;
-  const market_cap = data['時価総額_億'] || 0;
+  const pbr = getNumber(data, 'PBR');
+  const roe = getNumber(data, 'ROE_pct');
+  const real_estate_profit = getNumber(data, '不動産_含み益_億');
+  const sec_profit = getNumber(data, '有価証券_含み益_億');
+  const market_cap = getNumber(data, '時価総額_億');
 
   // ① P/與 (Max 40点)
   if (typeof p_yo === 'number' && p_yo >= 0) {
@@ -104,16 +111,16 @@ export function calculateValueScore(data: any, pyoData: any) {
 }
 
 // 3. データ状態（B/Sの異常）チェック
-export function checkBsAnomaly(data: any) {
+export function checkBsAnomaly(data: StockRecord) {
   const anomalies: string[] = [];
-  const total_assets = data['★資産合計'] || 0;
+  const total_assets = getNumber(data, '★資産合計');
   if (total_assets <= 0) return anomalies;
       
   const threshold = total_assets * 0.05;
   const others_keys = ["流動_その他流動資産", "有形_その他有形固定資産", "無形_その他無形固定資産", "投資_その他固定資産"];
   
   for (const key of others_keys) {
-    const val = data[key] || 0;
+    const val = getNumber(data, key);
     if (val < -threshold) {
       anomalies.push(`【${key}】が過剰なマイナス (${val}億円) です。`);
     }
@@ -122,15 +129,15 @@ export function checkBsAnomaly(data: any) {
 }
 
 // 4. 目標株価の逆算シミュレーション
-export function calculateTargetPrice(data: any, currentScore: number, pyoData: any) {
-  const current_price = data['株価'] || 0;
+export function calculateTargetPrice(data: StockRecord, currentScore: number) {
+  const current_price = getNumber(data, '株価');
   if (current_price <= 0) return { status: "✖️データなし", targetPrice: null, dropRate: null };
   if (currentScore >= 70) return { status: "✅購入水準", targetPrice: current_price, dropRate: 0.0 };
 
   // シミュレーション用のコピーを作成（TypeScript流）
   const simDataMin = { ...data };
-  simDataMin['時価総額_億'] = (data['時価総額_億'] || 0) * 0.0001;
-  simDataMin['PBR'] = (data['PBR'] || 0) * 0.0001;
+  simDataMin['時価総額_億'] = getNumber(data, '時価総額_億') * 0.0001;
+  simDataMin['PBR'] = getNumber(data, 'PBR') * 0.0001;
   const simPyoMin = calculatePyo(simDataMin);
   const minScoreData = calculateValueScore(simDataMin, simPyoMin);
   
@@ -143,8 +150,8 @@ export function calculateTargetPrice(data: any, currentScore: number, pyoData: a
   for (let i = 0; i < 20; i++) {
     const mid = (low + high) / 2;
     const simData = { ...data };
-    simData['時価総額_億'] = (data['時価総額_億'] || 0) * mid;
-    simData['PBR'] = (data['PBR'] || 0) * mid;
+    simData['時価総額_億'] = getNumber(data, '時価総額_億') * mid;
+    simData['PBR'] = getNumber(data, 'PBR') * mid;
     
     const simPyo = calculatePyo(simData);
     const scoreData = calculateValueScore(simData, simPyo);

@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "企業バリュー検索アプリ",
@@ -17,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className={inter.className}>
+      <body>
         {/* ★全体を flex で囲み、Sidebar(固定幅) と コンテンツ(残り全部) に分けます */}
         <div className="flex min-h-screen">
           

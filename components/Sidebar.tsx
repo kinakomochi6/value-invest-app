@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 
@@ -11,10 +11,6 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   // ページを移動したら、スマホのメニューを自動で閉じる
-  useEffect(() => {
-    setIsOpen(false);
-  }, [pathname]);
-
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault(); 
     if (code.length >= 4) {
@@ -65,6 +61,7 @@ export default function Sidebar() {
           <nav className="space-y-2">
             <Link 
               href="/" 
+              onClick={() => setIsOpen(false)}
               className={`block p-3 rounded-lg transition-colors ${pathname === '/' ? 'bg-blue-600 font-bold' : 'hover:bg-gray-700'}`}
             >
               📋 全銘柄一覧

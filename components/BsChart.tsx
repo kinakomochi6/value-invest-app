@@ -1,19 +1,25 @@
 "use client";
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import type { StockRecord } from "@/lib/types";
 
-export default function BsChart({ data }: { data: any }) {
+const getNumber = (data: StockRecord, key: string) => {
+  const value = data[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+};
+
+export default function BsChart({ data }: { data: StockRecord }) {
   const chartData = [
     {
       category: '資産 (Assets)',
-      総資産: data['★資産合計'] || 0,
+      総資産: getNumber(data, '★資産合計'),
       negative_pad: 0,
     },
     {
       category: '負債・純資産 (Liabilities/NA)',
       総資産: 0,
-      負債: data['★負債合計'] || 0,
-      純資産: data['★純資産合計'] || 0,
+      負債: getNumber(data, '★負債合計'),
+      純資産: getNumber(data, '★純資産合計'),
     }
   ];
 
