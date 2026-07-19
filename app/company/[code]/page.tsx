@@ -83,7 +83,7 @@ export default async function CompanyDetail({ params }: { params: Promise<{ code
 
   return (
     <main className="p-8 bg-gray-50 min-h-screen">
-      <Link href="/" className="text-blue-600 hover:underline font-bold mb-6 inline-block">← 全銘柄一覧に戻る</Link>
+      <Link href="/companies" className="text-blue-600 hover:underline font-bold mb-6 inline-block">← 全銘柄一覧に戻る</Link>
 
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-gray-800">[{code}] {displayValue(data['★企業名'])}</h1>

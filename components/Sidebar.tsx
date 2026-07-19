@@ -64,6 +64,13 @@ export default function Sidebar() {
               onClick={() => setIsOpen(false)}
               className={`block p-3 rounded-lg transition-colors ${pathname === '/' ? 'bg-blue-600 font-bold' : 'hover:bg-gray-700'}`}
             >
+              🔍 銘柄検索
+            </Link>
+            <Link
+              href="/companies"
+              onClick={() => setIsOpen(false)}
+              className={`block p-3 rounded-lg transition-colors ${pathname === '/companies' ? 'bg-blue-600 font-bold' : 'hover:bg-gray-700'}`}
+            >
               📋 全銘柄一覧
             </Link>
           </nav>

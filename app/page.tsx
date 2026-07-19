@@ -1,98 +1,95 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import CompanyTable from "@/components/CompanyTable";
-import type { StockRecord } from "@/lib/types";
-
-const TEST_MODE = true;
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
 
 export default function Home() {
-  const [rowData, setRowData] = useState<StockRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const url = TEST_MODE ? "/api/stocks?limit=10" : "/api/stocks";
-        const res = await fetch(url);
+  const handleSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const normalizedCode = code.trim();
 
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          const detail =
-            typeof body === "object" && body !== null && "detail" in body
-              ? String(body.detail)
-              : `HTTP ${res.status}`;
-          throw new Error(detail);
-        }
+    if (!/^\d{4}$/.test(normalizedCode)) {
+      setError("4桁の証券コードを入力してください。");
+      return;
+    }
 
-        const data: unknown = await res.json();
-        if (!Array.isArray(data)) {
-          throw new Error("API response is not an array.");
-        }
-
-        setRowData(data as StockRecord[]);
-      } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : String(e);
-        console.error("Failed to fetch stock data:", e);
-        setError(`データの取得に失敗しました: ${message}`);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
+    setError(null);
+    router.push(`/company/${normalizedCode}`);
+  };
 
   return (
     <main className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-full">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">全銘柄一覧</h1>
-          <p className="mt-2 text-gray-500">
-            コードをクリックすると銘柄詳細ページへ移動します。
-            {TEST_MODE && (
-              <span className="ml-2 rounded bg-yellow-200 px-2 py-1 text-xs font-bold text-yellow-800">
-                テストモード: 10件表示
-              </span>
-            )}
-          </p>
-        </div>
-
-        {loading && (
-          <div className="flex h-64 items-center justify-center text-lg text-gray-500">
-            <span className="animate-pulse">データを読み込み中...</span>
+      <div className="mx-auto flex max-w-5xl flex-col gap-8">
+        <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm md:p-8">
+          <div className="mb-6">
+            <p className="mb-2 text-sm font-bold text-blue-700">企業バリュー検索</p>
+            <h1 className="text-3xl font-bold text-gray-900 md:text-4xl">
+              証券コードから銘柄を分析
+            </h1>
+            <p className="mt-3 max-w-2xl text-gray-600">
+              個別銘柄のP/與、バリュースコア、B/S、購入判定を確認できます。
+            </p>
           </div>
-        )}
 
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-            <strong>エラー:</strong> {error}
-            <br />
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="mt-2 inline-block text-blue-600 underline"
-            >
-              再読み込みする
-            </button>
-          </div>
-        )}
-
-        {!loading && !error && rowData.length === 0 && (
-          <div className="flex h-64 items-center justify-center text-gray-500">
-            データが0件でした。Firestoreに銘柄データが存在するか確認してください。
-          </div>
-        )}
-
-        {!loading && !error && rowData.length > 0 && (
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
-            <div className="border-b border-gray-100 px-4 py-2 text-sm text-gray-500">
-              {rowData.length.toLocaleString()}件の銘柄が見つかりました
+          <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row">
+            <div className="min-w-0 flex-1">
+              <label htmlFor="stock-code" className="mb-2 block text-sm font-bold text-gray-700">
+                証券コード
+              </label>
+              <input
+                id="stock-code"
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="例: 7203"
+                value={code}
+                onChange={(event) => {
+                  setCode(event.target.value.replace(/\D/g, ""));
+                  setError(null);
+                }}
+                className="h-12 w-full rounded border border-gray-300 bg-white px-4 text-lg text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+              {error && <p className="mt-2 text-sm font-bold text-red-600">{error}</p>}
             </div>
-            <CompanyTable rowData={rowData} />
+
+            <div className="flex items-end">
+              <button
+                type="submit"
+                className="h-12 w-full rounded bg-blue-600 px-6 font-bold text-white transition-colors hover:bg-blue-500 sm:w-auto"
+              >
+                分析する
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-2">
+          <Link
+            href="/companies"
+            className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
+          >
+            <p className="text-sm font-bold text-blue-700">一覧から探す</p>
+            <h2 className="mt-2 text-xl font-bold text-gray-900">全銘柄一覧へ</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              スコア、PBR、配当利回りなどで並び替えながら銘柄を確認できます。
+            </p>
+          </Link>
+
+          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-bold text-gray-500">確認できる項目</p>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-gray-700">
+              <span className="rounded bg-gray-100 px-3 py-2">P/與</span>
+              <span className="rounded bg-gray-100 px-3 py-2">バリュースコア</span>
+              <span className="rounded bg-gray-100 px-3 py-2">B/Sグラフ</span>
+              <span className="rounded bg-gray-100 px-3 py-2">購入判定</span>
+            </div>
           </div>
-        )}
+        </section>
       </div>
     </main>
   );
