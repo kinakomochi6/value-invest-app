@@ -16,6 +16,19 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## B/S data contract
+
+The updater stores the stable analysis categories in the Firestore field
+`B/S_分析分類`. P/與 calculations use this nested map when it is present and
+fall back to the legacy top-level B/S fields for companies that have not yet
+been refreshed. An incomplete or malformed nested map is rejected as a whole,
+so values from two schema versions are never mixed in one calculation.
+
+Asset categories are multiplied by their liquidation-value rates. Total
+liabilities (`★負債合計`) and non-controlling interests
+(`純資_非支配株主持分`) are then deducted once. Detailed liability categories
+remain available for display and diagnostics, but are not deducted again.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

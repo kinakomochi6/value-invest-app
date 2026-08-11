@@ -1,7 +1,9 @@
 import type { StockRecord } from "./types";
 
-// B/S項目の掛け目（MULTIPLIERS）
-export const MULTIPLIERS: Record<string, number> = {
+export const ANALYSIS_BS_FIELD = "B/S_分析分類";
+
+// 分析用の共通資産分類。負債は内訳ではなく負債合計を一度だけ控除する。
+export const ASSET_MULTIPLIERS: Record<string, number> = {
   "流動_現金及び預金": 1, "流動_受取手形": 0.8, "流動_売掛金": 0.8, "流動_契約資産": 0.8,
   "流動_電子記録債権": 0.8, "流動_受取手形・売掛金(合算)": 0.8, "流動_有価証券": 1,
   "流動_棚卸資産": 0.5, "流動_前払費用": 0.8, "流動_未収入金": 0.8, "流動_未収消費税等": 0.8,
@@ -11,7 +13,14 @@ export const MULTIPLIERS: Record<string, number> = {
   "無形_ソフトウエア": 0.15, "無形_のれん": 0.15, "無形_借地権": 0.15, "無形_その他無形固定資産": 0.15,
   "投資_投資有価証券": 1, "投資_関係会社株式": 0.15, "投資_投資不動産": 0.15, "投資_長期貸付金": 0.15,
   "投資_差入保証金": 0.15, "投資_退職給付資産": 0.15, "投資_繰延税金資産": 0.15, "投資_貸倒引当金": 1,
-  "投資_その他固定資産": 0.15, "純資_非支配株主持分": -1, "★負債合計": -1
+  "投資_その他固定資産": 0.15
+};
+
+// 既存の参照元との互換性を維持する公開定数。
+export const MULTIPLIERS: Record<string, number> = {
+  ...ASSET_MULTIPLIERS,
+  "純資_非支配株主持分": -1,
+  "★負債合計": -1,
 };
 
 const getNumber = (data: StockRecord, key: string) => {
@@ -19,13 +28,42 @@ const getNumber = (data: StockRecord, key: string) => {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 };
 
+const getAnalysisMap = (data: StockRecord): StockRecord | null => {
+  const value = data[ANALYSIS_BS_FIELD];
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const analysisMap = value as StockRecord;
+  const requiredKeys = [
+    ...Object.keys(ASSET_MULTIPLIERS),
+    "純資_非支配株主持分",
+  ];
+  const isComplete = requiredKeys.every((key) => {
+    const fieldValue = analysisMap[key];
+    return typeof fieldValue === "number" && Number.isFinite(fieldValue);
+  });
+  return isComplete ? analysisMap : null;
+};
+
+const getAnalysisNumber = (
+  data: StockRecord,
+  analysisMap: StockRecord | null,
+  key: string,
+) => analysisMap ? getNumber(analysisMap, key) : getNumber(data, key);
+
 // 1. P/與の計算
 export function calculatePyo(data: StockRecord) {
-  let raw_adj_bs_asset = 0;
-  for (const [key, multiplier] of Object.entries(MULTIPLIERS)) {
-    const val = getNumber(data, key);
-    raw_adj_bs_asset += val * multiplier;
+  const analysisMap = getAnalysisMap(data);
+  let adjustedAssets = 0;
+  for (const [key, multiplier] of Object.entries(ASSET_MULTIPLIERS)) {
+    adjustedAssets += getAnalysisNumber(data, analysisMap, key) * multiplier;
   }
+
+  const totalLiabilities = getNumber(data, "★負債合計");
+  const nonControllingInterests = getAnalysisNumber(
+    data,
+    analysisMap,
+    "純資_非支配株主持分",
+  );
+  const raw_adj_bs_asset = adjustedAssets - totalLiabilities - nonControllingInterests;
   
   const sec_profit = getNumber(data, '有価証券_含み益_億');
   const tax_deduction = sec_profit * 0.3;
@@ -115,12 +153,13 @@ export function checkBsAnomaly(data: StockRecord) {
   const anomalies: string[] = [];
   const total_assets = getNumber(data, '★資産合計');
   if (total_assets <= 0) return anomalies;
-      
+
+  const analysisMap = getAnalysisMap(data);
   const threshold = total_assets * 0.05;
   const others_keys = ["流動_その他流動資産", "有形_その他有形固定資産", "無形_その他無形固定資産", "投資_その他固定資産"];
   
   for (const key of others_keys) {
-    const val = getNumber(data, key);
+    const val = getAnalysisNumber(data, analysisMap, key);
     if (val < -threshold) {
       anomalies.push(`【${key}】が過剰なマイナス (${val}億円) です。`);
     }
