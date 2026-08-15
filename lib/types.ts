@@ -6,5 +6,6 @@ export type StockRecord = Record<string, unknown> & {
   targetPrice?: number | null;
   dropRate?: number | null;
   pyo?: number | "-";
+  bsReliability?: string;
+  pyoScoreEligible?: boolean;
 };
-

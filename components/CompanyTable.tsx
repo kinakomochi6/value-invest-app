@@ -29,12 +29,24 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
       return <span style={{ background: "#fef9c3", color: "#854d0e", padding: "2px 8px", borderRadius: "9999px", fontSize: "12px", fontWeight: "bold" }}>{s}</span>;
     if (s === "❌購入非推奨")
       return <span style={{ background: "#fee2e2", color: "#991b1b", padding: "2px 8px", borderRadius: "9999px", fontSize: "12px", fontWeight: "bold" }}>{s}</span>;
+    if (s === "⚠️B/S要確認")
+      return <span style={{ background: "#fffbeb", color: "#92400e", padding: "2px 8px", borderRadius: "9999px", fontSize: "12px", fontWeight: "bold" }}>{s}</span>;
     return <span>{s ?? "-"}</span>;
   }, []);
 
   // スコアセルのレンダラー
   const ScoreCellRenderer = useCallback((params: ICellRendererParams<StockRecord>) => {
     return <span style={{ fontWeight: "bold", color: "#2563eb" }}>{params.value ?? "-"} 点</span>;
+  }, []);
+
+  const ReliabilityCellRenderer = useCallback((params: ICellRendererParams<StockRecord>) => {
+    const value = String(params.value ?? "-");
+    const verified = value === "検証済み";
+    return (
+      <span style={{ color: verified ? "#166534" : "#92400e", fontWeight: "bold", fontSize: "12px" }}>
+        {value}
+      </span>
+    );
   }, []);
 
   const colDefs = useMemo<ColDef<StockRecord>[]>(
@@ -53,6 +65,12 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
         width: 130,
         pinned: "left",
         cellRenderer: StatusCellRenderer,
+      },
+      {
+        field: "bsReliability",
+        headerName: "B/S品質",
+        width: 110,
+        cellRenderer: ReliabilityCellRenderer,
       },
       { field: "pyo", headerName: "P/與", width: 90, type: "numericColumn" },
       {
@@ -85,7 +103,7 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
       { field: "★市場区分", headerName: "市場", width: 100 },
       { field: "★業種", headerName: "業種", width: 120 },
     ],
-    [CodeCellRenderer, StatusCellRenderer, ScoreCellRenderer]
+    [CodeCellRenderer, StatusCellRenderer, ScoreCellRenderer, ReliabilityCellRenderer]
   );
 
   const defaultColDef = useMemo(

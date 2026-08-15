@@ -24,8 +24,8 @@ export default function BsChart({ data }: { data: StockRecord }) {
   ];
 
   return (
-    <div style={{ width: '100%', height: 450 }} className="p-4 bg-white rounded border">
-      <ResponsiveContainer>
+    <div style={{ width: '100%', height: 450, minWidth: 0 }} className="p-4 bg-white rounded border">
+      <ResponsiveContainer width="100%" height="100%">
         <BarChart 
           data={chartData} 
           margin={{ top: 20, right: 30, left: 20, bottom: 20 }}

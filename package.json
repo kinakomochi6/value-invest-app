@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --test test/valueLogic.test.mjs"
   },
   "dependencies": {
     "ag-grid-community": "^35.2.0",

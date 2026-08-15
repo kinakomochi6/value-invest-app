@@ -64,11 +64,17 @@ export default async function CompanyDetail({ params }: { params: Promise<{ code
   const data: StockRecord = JSON.parse(JSON.stringify({ id: doc.id, ...doc.data() }));
   const pyoData = calculatePyo(data);
   const { score, messages } = calculateValueScore(data, pyoData);
-  const { status, targetPrice, dropRate } = calculateTargetPrice(data, score);
+  const { status, targetPrice, dropRate } = calculateTargetPrice(data, score, pyoData);
   const anomalies = checkBsAnomaly(data);
+  const pyoWarnings = Array.isArray(pyoData['P_與_注意事項'])
+    ? pyoData['P_與_注意事項'].filter((item): item is string => typeof item === 'string')
+    : [];
+  const pyoScoreEligible = pyoData['P_與_スコア利用可'] === true;
+  const pyoReliability = displayValue(pyoData['P_與_信頼区分']);
 
   // 指値シミュレーション用の計算関数
   const calcSimPrice = (targetPyo: number) => {
+    if (!pyoScoreEligible) return "-";
     const currentPrice = typeof data['株価'] === "number" ? data['株価'] : 0;
     const marketCap = typeof data['時価総額_億'] === "number" ? data['時価総額_億'] : 0;
     const realNetAsset = typeof pyoData['実質純資産'] === "number" ? pyoData['実質純資産'] : 0;
@@ -92,6 +98,22 @@ export default async function CompanyDetail({ params }: { params: Promise<{ code
         </p>
       </div>
 
+      <div className={`mb-6 border-l-4 p-4 ${pyoScoreEligible ? 'border-green-600 bg-green-50 text-green-900' : 'border-amber-500 bg-amber-50 text-amber-950'}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="font-bold">B/S分析品質: {pyoReliability}</p>
+          <p className="text-sm">
+            {displayValue(pyoData['P_與_計算方式'])} / 検証状態: {displayValue(data['B/S_検証状態'])}
+          </p>
+        </div>
+        <p className="mt-1 text-sm">最終正常B/S更新: {formatDate(data['B/S_正常更新日時'])}</p>
+        <p className="mt-1 text-sm">正常採用書類: {displayValue(data['B/S_正常更新書類'])}</p>
+        {pyoWarnings.length > 0 && (
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+            {pyoWarnings.map((warning, index) => <li key={index}>{warning}</li>)}
+          </ul>
+        )}
+      </div>
+
       {/* スコアアラート */}
       <div className={`p-4 rounded-lg mb-6 text-lg font-bold border-l-4 ${score >= 70 ? 'bg-green-50 border-green-500 text-green-800' : score >= 40 ? 'bg-blue-50 border-blue-500 text-blue-800' : 'bg-yellow-50 border-yellow-500 text-yellow-800'}`}>
         {score >= 70 ? '💎 総合バリュースコア' : score >= 40 ? '⭐ 総合バリュースコア' : '総合バリュースコア'}: {score} / 100点
@@ -101,6 +123,7 @@ export default async function CompanyDetail({ params }: { params: Promise<{ code
       <div className="bg-white p-4 rounded-lg shadow-sm mb-8 border border-gray-200">
         <h3 className="font-bold text-gray-800 mb-2">💡 判定詳細</h3>
         {status === "❌購入非推奨" && <p className="text-red-600">現在の財務状態では、株価がどれだけ下がっても70点に到達しません。（バリュートラップの可能性があります）</p>}
+        {status === "⚠️B/S要確認" && <p className="text-amber-700">B/Sの品質確認が必要なため、購入判定と目安株価を停止しています。</p>}
         {status === "⏳下落待ち" && <p className="text-blue-600">約 <strong>{targetPrice} 円</strong> まで下がるとスコアが70点に到達します！（現在価格から <strong>-{dropRate}%</strong> の下落待ち）</p>}
         {status === "✅購入水準" && <p className="text-green-600">既に70点以上の <strong>✅購入水準</strong> に達しています！</p>}
         {messages.length > 0 && (
@@ -122,7 +145,7 @@ export default async function CompanyDetail({ params }: { params: Promise<{ code
       <h2 className="text-2xl font-bold text-gray-800 border-b-2 border-blue-200 pb-2 mb-4">📊 サマリー</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"><h3 className="text-sm text-gray-500 mb-1">P/與 (実質PBR)</h3><p className="text-3xl font-bold text-blue-600">{pyoData['P_與']} 倍</p></div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"><h3 className="text-sm text-gray-500 mb-1">P/與 (実質PBR)</h3><p className={`text-3xl font-bold ${pyoScoreEligible ? 'text-blue-600' : 'text-amber-700'}`}>{pyoData['P_與']} 倍</p><p className="mt-1 text-xs text-gray-500">{pyoScoreEligible ? 'スコア利用可' : '参考値'}</p></div>
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"><h3 className="text-sm text-gray-500 mb-1">実質純資産 (換金価値)</h3><p className="text-3xl font-bold text-gray-800">{pyoData['実質純資産']} 億円</p></div>
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"><h3 className="text-sm text-gray-500 mb-1">時価総額 (買収価格)</h3><p className="text-3xl font-bold text-gray-800">{displayValue(data['時価総額_億'], "0")} 億円</p></div>
       </div>
@@ -156,6 +179,9 @@ export default async function CompanyDetail({ params }: { params: Promise<{ code
             <InfoRow label="④ 調整済 不動産" value={`${pyoData['調整済み不動産額']} 億円`} />
             <InfoRow label="⑤ 実質純資産 (③+④)" value={`${pyoData['実質純資産']} 億円`} />
             <InfoRow label="⑥ お買い得度 (⑤÷時価総額)" value={pyoData['お買い得度']} />
+            <InfoRow label="大分類の資産合計" value={`${pyoData['B_S分類資産合計']} 億円`} />
+            <InfoRow label="総資産との差額" value={`${pyoData['B_S資産合計差額']} 億円`} />
+            <InfoRow label="計算方式" value={pyoData['P_與_計算方式']} />
             <tr className="bg-blue-50 font-bold"><th className="py-2 px-3 w-1/2 text-left">🎯 最終 P/與 (1÷⑥)</th><td className="py-2 px-3 text-right text-blue-600">{pyoData['P_與']} 倍</td></tr>
           </tbody>
         </table>

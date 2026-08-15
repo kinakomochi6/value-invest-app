@@ -1,6 +1,7 @@
 import type { StockRecord } from "./types";
 
 export const ANALYSIS_BS_FIELD = "B/S_分析分類";
+export const SUPPORTED_ANALYSIS_BS_VERSION = "1.0";
 
 // 分析用の共通資産分類。負債は内訳ではなく負債合計を一度だけ控除する。
 export const ASSET_MULTIPLIERS: Record<string, number> = {
@@ -49,52 +50,132 @@ const getAnalysisNumber = (
   key: string,
 ) => analysisMap ? getNumber(analysisMap, key) : getNumber(data, key);
 
+const getString = (data: StockRecord, key: string) => {
+  const value = data[key];
+  return typeof value === "string" ? value : "";
+};
+
+const round2 = (value: number) => Number(value.toFixed(2));
+
 // 1. P/與の計算
 export function calculatePyo(data: StockRecord) {
   const analysisMap = getAnalysisMap(data);
+  const warnings: string[] = [];
+  const totalAssets = getNumber(data, "★資産合計");
+  const totalLiabilities = getNumber(data, "★負債合計");
+  const qualityStatus = getString(data, "B/S_検証状態");
+  const classificationVersion = getString(data, "B/S_分析分類バージョン");
+
+  let classifiedAssets = 0;
   let adjustedAssets = 0;
   for (const [key, multiplier] of Object.entries(ASSET_MULTIPLIERS)) {
-    adjustedAssets += getAnalysisNumber(data, analysisMap, key) * multiplier;
+    const value = getAnalysisNumber(data, analysisMap, key);
+    classifiedAssets += value;
+    adjustedAssets += value * multiplier;
   }
 
-  const totalLiabilities = getNumber(data, "★負債合計");
   const nonControllingInterests = getAnalysisNumber(
     data,
     analysisMap,
     "純資_非支配株主持分",
   );
   const raw_adj_bs_asset = adjustedAssets - totalLiabilities - nonControllingInterests;
-  
-  const sec_profit = getNumber(data, '有価証券_含み益_億');
+
+  let assetClassificationGap: number | "-" = "-";
+  let classificationIsConsistent = false;
+  if (analysisMap) {
+    assetClassificationGap = totalAssets - classifiedAssets;
+    const warningLimit = 1;
+    classificationIsConsistent = Math.abs(assetClassificationGap) <= warningLimit;
+    if (!classificationIsConsistent) {
+      warnings.push(
+        `大分類の資産合計と総資産に${round2(assetClassificationGap)}億円の差があります。`,
+      );
+    }
+    if (classificationVersion !== SUPPORTED_ANALYSIS_BS_VERSION) {
+      warnings.push(
+        `大分類バージョン${classificationVersion || "不明"}は現在の計算方式に未対応です。`,
+      );
+    }
+  } else {
+    warnings.push("大分類データが未反映のため、従来分類で参考計算しています。");
+  }
+
+  if (qualityStatus === "partial") {
+    warnings.push("B/S抽出結果がpartial判定のため、P/與は参考値です。");
+  } else if (qualityStatus === "quarantined") {
+    warnings.push("最新のB/S抽出が隔離されているため、保持中の過去データで参考計算しています。");
+  } else if (qualityStatus !== "verified") {
+    warnings.push("B/Sの検証状態を確認できないため、P/與は参考値です。");
+  }
+  if (totalAssets <= 0) warnings.push("総資産が取得できていません。");
+  if (totalLiabilities < 0) warnings.push("負債合計がマイナスのため計算結果を利用できません。");
+
+  const sec_profit = Math.max(0, getNumber(data, '有価証券_含み益_億'));
   const tax_deduction = sec_profit * 0.3;
   const adj_bs_asset = raw_adj_bs_asset - tax_deduction;
       
   const market_val = getNumber(data, '不動産_時価_億');
   const book_val = getNumber(data, '不動産_簿価_億');
   let adj_re_val = 0;
-  if (market_val > 0) {
-    adj_re_val = market_val - (book_val * 0.15) - ((market_val - book_val) * 0.3);
+  if (market_val > 0 && book_val > 0) {
+    const taxableGain = Math.max(0, market_val - book_val);
+    adj_re_val = market_val - (book_val * 0.15) - (taxableGain * 0.3);
+  } else if (market_val > 0) {
+    warnings.push("不動産の簿価がないため、時価調整を計算に加えていません。");
   }
-      
+
+  const realNetAssets = adj_bs_asset + adj_re_val;
   const market_cap = getNumber(data, '時価総額_億');
   let bargain_degree = 0;
-  if (market_cap > 0) {
-    bargain_degree = (adj_bs_asset + adj_re_val) / market_cap;
+  if (market_cap > 0 && realNetAssets > 0) {
+    bargain_degree = realNetAssets / market_cap;
   }
-      
+
   let p_yo: number | "-" = "-";
   if (bargain_degree > 0) {
     p_yo = Number((1 / bargain_degree).toFixed(2));
   }
-      
+
+  if (market_cap <= 0) warnings.push("時価総額が取得できていません。");
+  if (realNetAssets <= 0) warnings.push("倍率適用後の実質純資産が0以下です。");
+
+  const scoreEligible = Boolean(
+    analysisMap
+    && classificationVersion === SUPPORTED_ANALYSIS_BS_VERSION
+    && qualityStatus === "verified"
+    && classificationIsConsistent
+    && totalAssets > 0
+    && totalLiabilities >= 0
+    && typeof p_yo === "number"
+  );
+
+  let reliability = "要注意";
+  if (totalAssets <= 0 || totalLiabilities < 0 || realNetAssets <= 0) {
+    reliability = "計算不可";
+  } else if (scoreEligible) {
+    reliability = "検証済み";
+  } else if (!analysisMap) {
+    reliability = "旧方式";
+  } else if (qualityStatus === "quarantined") {
+    reliability = "隔離データ";
+  }
+
   return {
-    倍率計算のみのBS: Number(raw_adj_bs_asset.toFixed(2)),
-    有価証券_税金控除額: Number(tax_deduction.toFixed(2)),
-    調整済み資産額_BS: Number(adj_bs_asset.toFixed(2)),
-    調整済み不動産額: Number(adj_re_val.toFixed(2)),
-    実質純資産: Number((adj_bs_asset + adj_re_val).toFixed(2)),
-    お買い得度: Number(bargain_degree.toFixed(2)),
-    P_與: p_yo
+    倍率計算のみのBS: round2(raw_adj_bs_asset),
+    有価証券_税金控除額: round2(tax_deduction),
+    調整済み資産額_BS: round2(adj_bs_asset),
+    調整済み不動産額: round2(adj_re_val),
+    実質純資産: round2(realNetAssets),
+    お買い得度: round2(bargain_degree),
+    B_S分類資産合計: round2(classifiedAssets),
+    B_S資産合計差額: assetClassificationGap === "-" ? "-" : round2(assetClassificationGap),
+    P_與_計算方式: analysisMap ? `大分類 v${classificationVersion || "不明"}` : "旧方式",
+    P_與_信頼区分: reliability,
+    P_與_注意事項: warnings,
+    P_與_計算可能: typeof p_yo === "number",
+    P_與_スコア利用可: scoreEligible,
+    P_與: p_yo,
   };
 }
 
@@ -110,17 +191,20 @@ export function calculateValueScore(data: StockRecord, pyoData: StockRecord) {
   const market_cap = getNumber(data, '時価総額_億');
 
   // ① P/與 (Max 40点)
-  if (typeof p_yo === 'number' && p_yo >= 0) {
+  const pyoScoreEligible = pyoData["P_與_スコア利用可"] === true;
+  if (pyoScoreEligible && typeof p_yo === 'number' && p_yo > 0) {
     let score_pyo = 0;
     if (p_yo <= 0.5) score_pyo = 40;
     else if (p_yo < 1.0) score_pyo = 40 - ((p_yo - 0.5) / 0.5) * 40;
     score += score_pyo;
     if (p_yo <= 0.5) messages.push(`🔥 【超絶割安】実質PBR(P/與)が0.5以下 (+${Math.floor(score_pyo)}点)`);
     else if (p_yo < 1.0) messages.push(`✅ 【割安】実質PBR(P/與)が1.0未満 (+${Math.floor(score_pyo)}点)`);
+  } else {
+    messages.push("B/Sの信頼性確認が必要なため、P/與はスコアに加算していません。");
   }
 
   // ② 表面PBR (Max 20点)
-  if (typeof pbr === 'number' && pbr >= 0) {
+  if (typeof pbr === 'number' && pbr > 0) {
     let score_pbr = 0;
     if (pbr <= 0.5) score_pbr = 20;
     else if (pbr < 1.0) score_pbr = 20 - ((pbr - 0.5) / 0.5) * 20;
@@ -168,9 +252,16 @@ export function checkBsAnomaly(data: StockRecord) {
 }
 
 // 4. 目標株価の逆算シミュレーション
-export function calculateTargetPrice(data: StockRecord, currentScore: number) {
+export function calculateTargetPrice(
+  data: StockRecord,
+  currentScore: number,
+  pyoData: StockRecord,
+) {
   const current_price = getNumber(data, '株価');
   if (current_price <= 0) return { status: "✖️データなし", targetPrice: null, dropRate: null };
+  if (pyoData["P_與_スコア利用可"] !== true) {
+    return { status: "⚠️B/S要確認", targetPrice: null, dropRate: null };
+  }
   if (currentScore >= 70) return { status: "✅購入水準", targetPrice: current_price, dropRate: 0.0 };
 
   // シミュレーション用のコピーを作成（TypeScript流）

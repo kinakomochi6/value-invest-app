@@ -29,6 +29,22 @@ liabilities (`★負債合計`) and non-controlling interests
 (`純資_非支配株主持分`) are then deducted once. Detailed liability categories
 remain available for display and diagnostics, but are not deducted again.
 
+## P/與 safety checks
+
+P/與 is allowed to affect the value score and target-price simulation only
+when all of the following are true:
+
+- the complete canonical B/S map is present
+- the updater quality status is `verified`
+- canonical assets reconcile to total assets within 1 oku yen
+- total assets, total liabilities, market capitalization, and adjusted net
+  assets pass basic validity checks
+
+`partial`, `quarantined`, legacy, incomplete, and inconsistent records may
+still show a reference P/與, but they are labeled and excluded from investment
+decisions. Real-estate adjustments require both book value and market value,
+and tax is deducted only from positive unrealized gains.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

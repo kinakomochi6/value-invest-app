@@ -25,11 +25,13 @@ export async function GET(request: NextRequest) {
       try {
         const pyoData = calculatePyo(data);
         const { score } = calculateValueScore(data, pyoData);
-        const { status, targetPrice, dropRate } = calculateTargetPrice(data, score);
+        const { status, targetPrice, dropRate } = calculateTargetPrice(data, score, pyoData);
         return {
           code: doc.id,
           ...data,
           pyo: pyoData["P_與"],
+          bsReliability: pyoData["P_與_信頼区分"],
+          pyoScoreEligible: pyoData["P_與_スコア利用可"],
           score,
           status,
           targetPrice,
