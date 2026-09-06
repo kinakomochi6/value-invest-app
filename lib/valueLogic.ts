@@ -2,6 +2,8 @@ import type { StockRecord } from "./types";
 
 export const ANALYSIS_BS_FIELD = "B/S_分析分類";
 export const SUPPORTED_ANALYSIS_BS_VERSION = "1.0";
+export const MIN_REAL_NET_ASSETS_OKU = 1;
+export const MIN_REAL_NET_ASSET_RATIO = 0.05;
 
 // 分析用の共通資産分類。負債は内訳ではなく負債合計を一度だけ控除する。
 export const ASSET_MULTIPLIERS: Record<string, number> = {
@@ -102,11 +104,11 @@ export function calculatePyo(data: StockRecord) {
   }
 
   if (qualityStatus === "partial") {
-    warnings.push("B/S抽出結果がpartial判定のため、P/與は参考値です。");
+    warnings.push("B/S抽出結果がpartial判定のため、P/與の公開を保留しています。");
   } else if (qualityStatus === "quarantined") {
-    warnings.push("最新のB/S抽出が隔離されているため、保持中の過去データで参考計算しています。");
+    warnings.push("最新のB/S抽出が隔離されているため、P/與の公開を保留しています。");
   } else if (qualityStatus !== "verified") {
-    warnings.push("B/Sの検証状態を確認できないため、P/與は参考値です。");
+    warnings.push("B/Sの検証状態を確認できないため、P/與の公開を保留しています。");
   }
   if (totalAssets <= 0) warnings.push("総資産が取得できていません。");
   if (totalLiabilities < 0) warnings.push("負債合計がマイナスのため計算結果を利用できません。");
@@ -132,23 +134,38 @@ export function calculatePyo(data: StockRecord) {
     bargain_degree = realNetAssets / market_cap;
   }
 
-  let p_yo: number | "-" = "-";
+  let referencePyo: number | "-" = "-";
   if (bargain_degree > 0) {
-    p_yo = Number((1 / bargain_degree).toFixed(2));
+    referencePyo = Number((1 / bargain_degree).toFixed(2));
   }
 
   if (market_cap <= 0) warnings.push("時価総額が取得できていません。");
   if (realNetAssets <= 0) warnings.push("倍率適用後の実質純資産が0以下です。");
 
-  const scoreEligible = Boolean(
+  const minimumStableNetAssets = Math.max(
+    MIN_REAL_NET_ASSETS_OKU,
+    totalAssets * MIN_REAL_NET_ASSET_RATIO,
+  );
+  const denominatorIsStable = realNetAssets >= minimumStableNetAssets;
+  if (realNetAssets > 0 && !denominatorIsStable) {
+    warnings.push(
+      `実質純資産が総資産の${MIN_REAL_NET_ASSET_RATIO * 100}%未満または${MIN_REAL_NET_ASSETS_OKU}億円未満で、わずかな分類差によりP/與が大きく変動するため算出を保留しています。`,
+    );
+  }
+
+  const calculationEligible = Boolean(
     analysisMap
     && classificationVersion === SUPPORTED_ANALYSIS_BS_VERSION
     && qualityStatus === "verified"
     && classificationIsConsistent
     && totalAssets > 0
     && totalLiabilities >= 0
-    && typeof p_yo === "number"
+    && market_cap > 0
+    && denominatorIsStable
+    && typeof referencePyo === "number"
   );
+  const p_yo: number | "-" = calculationEligible ? referencePyo : "-";
+  const scoreEligible = calculationEligible;
 
   let reliability = "要注意";
   if (totalAssets <= 0 || totalLiabilities < 0 || realNetAssets <= 0) {
@@ -159,6 +176,8 @@ export function calculatePyo(data: StockRecord) {
     reliability = "旧方式";
   } else if (qualityStatus === "quarantined") {
     reliability = "隔離データ";
+  } else if (!denominatorIsStable) {
+    reliability = "計算保留";
   }
 
   return {
@@ -173,7 +192,8 @@ export function calculatePyo(data: StockRecord) {
     P_與_計算方式: analysisMap ? `大分類 v${classificationVersion || "不明"}` : "旧方式",
     P_與_信頼区分: reliability,
     P_與_注意事項: warnings,
-    P_與_計算可能: typeof p_yo === "number",
+    P_與_参考値: referencePyo,
+    P_與_計算可能: calculationEligible,
     P_與_スコア利用可: scoreEligible,
     P_與: p_yo,
   };

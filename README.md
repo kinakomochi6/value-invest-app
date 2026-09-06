@@ -40,10 +40,13 @@ when all of the following are true:
 - total assets, total liabilities, market capitalization, and adjusted net
   assets pass basic validity checks
 
-`partial`, `quarantined`, legacy, incomplete, and inconsistent records may
-still show a reference P/與, but they are labeled and excluded from investment
-decisions. Real-estate adjustments require both book value and market value,
-and tax is deducted only from positive unrealized gains.
+`partial`, `quarantined`, legacy, incomplete, and inconsistent records do not
+publish a P/與 value and are excluded from investment decisions. The internal
+reference calculation remains available as `P_與_参考値` for diagnostics only.
+Even verified records are withheld when adjusted net assets are below 5% of
+total assets or below 1 oku yen, because small classification differences would
+otherwise make P/與 swing sharply. Real-estate adjustments require both book
+value and market value, and tax is deducted only from positive unrealized gains.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

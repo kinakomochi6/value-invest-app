@@ -66,14 +66,16 @@ test("verified and reconciled canonical data can contribute to the score", () =>
   assert.equal(result["B_S資産合計差額"], 0);
 });
 
-test("partial data remains visible but is excluded from score and target price", () => {
+test("partial data is withheld from display, score, and target price", () => {
   const map = completeAnalysisMap({ "流動_現金及び預金": 100 });
   const data = verifiedData(map, { "B/S_検証状態": "partial" });
   const pyo = calculatePyo(data);
   const score = calculateValueScore(data, pyo);
   const target = calculateTargetPrice(data, score.score, pyo);
 
-  assert.equal(pyo["P_與"], 1);
+  assert.equal(pyo["P_與"], "-");
+  assert.equal(pyo["P_與_参考値"], 1);
+  assert.equal(pyo["P_與_計算可能"], false);
   assert.equal(pyo["P_與_スコア利用可"], false);
   assert.equal(score.score, 0);
   assert.equal(target.status, "⚠️B/S要確認");
@@ -113,13 +115,14 @@ test("legacy or incomplete canonical data is never mixed with the new schema", (
   assert.equal(result["P_與_スコア利用可"], false);
 });
 
-test("an unsupported canonical version is reference-only", () => {
+test("an unsupported canonical version is withheld from display", () => {
   const map = completeAnalysisMap({ "流動_現金及び預金": 100 });
   const result = calculatePyo(verifiedData(map, {
     "B/S_分析分類バージョン": "2.0",
   }));
 
-  assert.equal(result["P_與"], 1);
+  assert.equal(result["P_與"], "-");
+  assert.equal(result["P_與_参考値"], 1);
   assert.equal(result["P_與_スコア利用可"], false);
   assert.match(result["P_與_注意事項"].join(" "), /未対応/);
 });
@@ -146,4 +149,30 @@ test("real-estate market value is not added when book value is missing", () => {
   assert.equal(result["調整済み不動産額"], 0);
   assert.equal(result["実質純資産"], 100);
   assert.match(result["P_與_注意事項"].join(" "), /簿価/);
+});
+
+test("quarantined retained data never publishes a P/與 value", () => {
+  const map = completeAnalysisMap({ "流動_現金及び預金": 100 });
+  const result = calculatePyo(verifiedData(map, {
+    "B/S_検証状態": "quarantined",
+  }));
+
+  assert.equal(result["P_與"], "-");
+  assert.equal(result["P_與_参考値"], 1);
+  assert.equal(result["P_與_信頼区分"], "隔離データ");
+  assert.equal(result["P_與_計算可能"], false);
+});
+
+test("an unstable near-zero denominator is withheld instead of showing an extreme ratio", () => {
+  const map = completeAnalysisMap({ "流動_現金及び預金": 100 });
+  const result = calculatePyo(verifiedData(map, {
+    "★負債合計": 96,
+    "時価総額_億": 100,
+  }));
+
+  assert.equal(result["実質純資産"], 4);
+  assert.equal(result["P_與_参考値"], 25);
+  assert.equal(result["P_與"], "-");
+  assert.equal(result["P_與_信頼区分"], "計算保留");
+  assert.match(result["P_與_注意事項"].join(" "), /大きく変動/);
 });

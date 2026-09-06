@@ -71,6 +71,9 @@ export default async function CompanyDetail({ params }: { params: Promise<{ code
     : [];
   const pyoScoreEligible = pyoData['P_與_スコア利用可'] === true;
   const pyoReliability = displayValue(pyoData['P_與_信頼区分']);
+  const pyoDisplay = typeof pyoData['P_與'] === 'number'
+    ? `${pyoData['P_與']} 倍`
+    : '算出保留';
 
   // 指値シミュレーション用の計算関数
   const calcSimPrice = (targetPyo: number) => {
@@ -145,7 +148,7 @@ export default async function CompanyDetail({ params }: { params: Promise<{ code
       <h2 className="text-2xl font-bold text-gray-800 border-b-2 border-blue-200 pb-2 mb-4">📊 サマリー</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"><h3 className="text-sm text-gray-500 mb-1">P/與 (実質PBR)</h3><p className={`text-3xl font-bold ${pyoScoreEligible ? 'text-blue-600' : 'text-amber-700'}`}>{pyoData['P_與']} 倍</p><p className="mt-1 text-xs text-gray-500">{pyoScoreEligible ? 'スコア利用可' : '参考値'}</p></div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"><h3 className="text-sm text-gray-500 mb-1">P/與 (実質PBR)</h3><p className={`text-3xl font-bold ${pyoScoreEligible ? 'text-blue-600' : 'text-amber-700'}`}>{pyoDisplay}</p><p className="mt-1 text-xs text-gray-500">{pyoScoreEligible ? 'スコア利用可' : 'B/S品質の確認が必要です'}</p></div>
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"><h3 className="text-sm text-gray-500 mb-1">実質純資産 (換金価値)</h3><p className="text-3xl font-bold text-gray-800">{pyoData['実質純資産']} 億円</p></div>
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"><h3 className="text-sm text-gray-500 mb-1">時価総額 (買収価格)</h3><p className="text-3xl font-bold text-gray-800">{displayValue(data['時価総額_億'], "0")} 億円</p></div>
       </div>
@@ -182,7 +185,7 @@ export default async function CompanyDetail({ params }: { params: Promise<{ code
             <InfoRow label="大分類の資産合計" value={`${pyoData['B_S分類資産合計']} 億円`} />
             <InfoRow label="総資産との差額" value={`${pyoData['B_S資産合計差額']} 億円`} />
             <InfoRow label="計算方式" value={pyoData['P_與_計算方式']} />
-            <tr className="bg-blue-50 font-bold"><th className="py-2 px-3 w-1/2 text-left">🎯 最終 P/與 (1÷⑥)</th><td className="py-2 px-3 text-right text-blue-600">{pyoData['P_與']} 倍</td></tr>
+            <tr className="bg-blue-50 font-bold"><th className="py-2 px-3 w-1/2 text-left">🎯 最終 P/與 (1÷⑥)</th><td className="py-2 px-3 text-right text-blue-600">{pyoDisplay}</td></tr>
           </tbody>
         </table>
       </div>
