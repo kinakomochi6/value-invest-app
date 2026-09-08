@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useCallback, useEffect, useState } from "react";
+import { useMemo, useCallback, useEffect, useRef, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
-import { ModuleRegistry, AllCommunityModule, themeQuartz, CellClickedEvent, ColDef, ICellRendererParams } from "ag-grid-community";
+import { ModuleRegistry, AllCommunityModule, themeQuartz, BodyScrollEvent, CellClickedEvent, ColDef, ICellRendererParams } from "ag-grid-community";
 import { useRouter } from "next/navigation";
 import type { StockRecord } from "@/lib/types";
 
@@ -11,6 +11,8 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
+  const companyPinnedRef = useRef(false);
+  const companyPinnedAtRef = useRef(0);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 640px)");
@@ -25,6 +27,14 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
     return (
       <span style={{ color: "#2563eb", fontWeight: "bold", cursor: "pointer", textDecoration: "underline" }}>
         {params.value}
+      </span>
+    );
+  }, []);
+
+  const CompanyCellRenderer = useCallback((params: ICellRendererParams<StockRecord>) => {
+    return (
+      <span className="cursor-pointer font-semibold text-blue-700 underline decoration-blue-300 underline-offset-2">
+        {String(params.value ?? "-")}
       </span>
     );
   }, []);
@@ -45,8 +55,6 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
         field: "code",
         headerName: "コード",
         width: isMobile ? 78 : 90,
-        pinned: "left",
-        lockPinned: true,
         suppressMovable: true,
         cellRenderer: CodeCellRenderer,
       },
@@ -54,10 +62,9 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
         field: "★企業名",
         headerName: "企業名",
         width: isMobile ? 136 : 190,
-        pinned: "left",
-        lockPinned: true,
         suppressMovable: true,
         tooltipField: "★企業名",
+        cellRenderer: CompanyCellRenderer,
       },
       {
         field: "bsReliability",
@@ -65,7 +72,16 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
         width: 110,
         cellRenderer: ReliabilityCellRenderer,
       },
-      { field: "pyo", headerName: "P/與", width: 90, type: "numericColumn" },
+      {
+        colId: "pyo",
+        field: "pyo",
+        headerName: "P/與",
+        width: 82,
+        type: "numericColumn",
+        cellDataType: "number",
+        valueGetter: ({ data }) => typeof data?.pyo === "number" ? data.pyo : null,
+        valueFormatter: ({ value }) => typeof value === "number" ? String(value) : "-",
+      },
       { field: "PBR", headerName: "PBR(倍)", width: 90, type: "numericColumn" },
       { field: "PER", headerName: "PER(倍)", width: 90, type: "numericColumn" },
       { field: "配当利回り_pct", headerName: "配当利回り(%)", width: 130, type: "numericColumn" },
@@ -87,7 +103,7 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
       { field: "★市場区分", headerName: "市場", width: 100 },
       { field: "★業種", headerName: "業種", width: 120 },
     ],
-    [CodeCellRenderer, ReliabilityCellRenderer, isMobile]
+    [CodeCellRenderer, CompanyCellRenderer, ReliabilityCellRenderer, isMobile]
   );
 
   const defaultColDef = useMemo(
@@ -95,12 +111,30 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
     []
   );
 
-  // ★ AG Grid のセルクリックイベントで「コード」列だけナビゲーション
   const onCellClicked = useCallback((event: CellClickedEvent) => {
-    if (event.colDef.field === "code" && event.value) {
-      router.push(`/company/${event.value}`);
+    const field = event.colDef.field;
+    const code = event.data?.code;
+    if ((field === "code" || field === "★企業名") && code) {
+      router.push(`/company/${code}`);
     }
   }, [router]);
+
+  const onBodyScroll = useCallback((event: BodyScrollEvent<StockRecord>) => {
+    if (event.direction !== "horizontal") return;
+
+    const codeWidth = isMobile ? 78 : 90;
+    const shouldPinCompany = event.left >= codeWidth;
+    const canUnpin = Date.now() - companyPinnedAtRef.current > 300;
+
+    if (shouldPinCompany && !companyPinnedRef.current) {
+      companyPinnedRef.current = true;
+      companyPinnedAtRef.current = Date.now();
+      event.api.setColumnsPinned(["★企業名"], "left");
+    } else if (event.left <= 1 && companyPinnedRef.current && canUnpin) {
+      companyPinnedRef.current = false;
+      event.api.setColumnsPinned(["★企業名"], null);
+    }
+  }, [isMobile]);
 
   return (
     <div className="stock-grid h-[72dvh] min-h-[28rem] w-full md:h-[75vh]">
@@ -113,6 +147,7 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
         headerHeight={isMobile ? 42 : 46}
         animateRows={false}
         onCellClicked={onCellClicked}
+        onBodyScroll={onBodyScroll}
       />
     </div>
   );

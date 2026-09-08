@@ -47,7 +47,7 @@ export default function CompaniesPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-800 sm:text-3xl">全銘柄一覧</h1>
           <p className="mt-2 text-gray-500">
-            コードをクリックすると銘柄詳細ページへ移動します。
+            コードまたは企業名をクリックすると銘柄詳細ページへ移動します。
           </p>
         </div>
 

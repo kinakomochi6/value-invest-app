@@ -24,3 +24,25 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.stock-grid .ag-cell,
+.stock-grid .ag-header-cell {
+  padding-left: 6px;
+  padding-right: 6px;
+  font-size: 11px;
+}
+
+.stock-grid .ag-header-cell-text {
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+@media (max-width: 640px) {
+  .stock-grid .ag-cell {
+    font-size: 10px;
+  }
+
+  .stock-grid .ag-header-cell-text {
+    font-size: 9px;
+  }
+}
