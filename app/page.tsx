@@ -13,8 +13,8 @@ export default function Home() {
     event.preventDefault();
     const normalizedCode = code.trim();
 
-    if (!/^\d{4}$/.test(normalizedCode)) {
-      setError("4桁の証券コードを入力してください。");
+    if (!/^[0-9][0-9A-Z]{3}$/.test(normalizedCode)) {
+      setError("4文字の証券コードを入力してください。");
       return;
     }
 
@@ -32,7 +32,7 @@ export default function Home() {
               証券コードから銘柄を分析
             </h1>
             <p className="mt-3 max-w-2xl text-gray-600">
-              個別銘柄のP/與、バリュースコア、B/S、購入判定を確認できます。
+              個別銘柄のP/與、財務指標、B/S、含み益を確認できます。
             </p>
           </div>
 
@@ -44,12 +44,13 @@ export default function Home() {
               <input
                 id="stock-code"
                 type="text"
-                inputMode="numeric"
+                inputMode="text"
+                autoCapitalize="characters"
                 maxLength={4}
-                placeholder="例: 7203"
+                placeholder="例: 7203 / 130A"
                 value={code}
                 onChange={(event) => {
-                  setCode(event.target.value.replace(/\D/g, ""));
+                  setCode(event.target.value.toUpperCase().replace(/[^0-9A-Z]/g, ""));
                   setError(null);
                 }}
                 className="h-12 w-full rounded border border-gray-300 bg-white px-4 text-lg text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
@@ -76,7 +77,7 @@ export default function Home() {
             <p className="text-sm font-bold text-blue-700">一覧から探す</p>
             <h2 className="mt-2 text-xl font-bold text-gray-900">全銘柄一覧へ</h2>
             <p className="mt-2 text-sm text-gray-600">
-              スコア、PBR、配当利回りなどで並び替えながら銘柄を確認できます。
+              P/與、PBR、配当利回りなどで並び替えながら銘柄を確認できます。
             </p>
           </Link>
 
@@ -84,9 +85,9 @@ export default function Home() {
             <p className="text-sm font-bold text-gray-500">確認できる項目</p>
             <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-gray-700">
               <span className="rounded bg-gray-100 px-3 py-2">P/與</span>
-              <span className="rounded bg-gray-100 px-3 py-2">バリュースコア</span>
+              <span className="rounded bg-gray-100 px-3 py-2">PBR・PER</span>
               <span className="rounded bg-gray-100 px-3 py-2">B/Sグラフ</span>
-              <span className="rounded bg-gray-100 px-3 py-2">購入判定</span>
+              <span className="rounded bg-gray-100 px-3 py-2">不動産・有価証券</span>
             </div>
           </div>
         </section>
@@ -94,4 +95,3 @@ export default function Home() {
     </main>
   );
 }
-

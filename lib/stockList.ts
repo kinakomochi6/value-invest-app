@@ -1,4 +1,4 @@
-import { calculatePyo, calculateTargetPrice, calculateValueScore } from "@/lib/valueLogic";
+import { calculatePyo } from "@/lib/valueLogic";
 import type { StockRecord } from "@/lib/types";
 
 export const STOCK_LIST_FIELDS = [
@@ -40,17 +40,10 @@ export function buildStockListItem(
 
   try {
     const pyoData = calculatePyo(data);
-    const { score } = calculateValueScore(data, pyoData);
-    const { status, targetPrice, dropRate } = calculateTargetPrice(data, score, pyoData);
 
     Object.assign(item, {
       pyo: pyoData["P_與"],
       bsReliability: pyoData["P_與_信頼区分"],
-      pyoScoreEligible: pyoData["P_與_スコア利用可"],
-      score,
-      status,
-      targetPrice,
-      dropRate,
     });
   } catch {
     // One malformed company must not prevent the full market list from loading.

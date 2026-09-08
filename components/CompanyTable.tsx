@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
 import { ModuleRegistry, AllCommunityModule, themeQuartz, CellClickedEvent, ColDef, ICellRendererParams } from "ag-grid-community";
 import { useRouter } from "next/navigation";
@@ -10,6 +10,15 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
   const router = useRouter();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 640px)");
+    const updateViewport = () => setIsMobile(mediaQuery.matches);
+    updateViewport();
+    mediaQuery.addEventListener("change", updateViewport);
+    return () => mediaQuery.removeEventListener("change", updateViewport);
+  }, []);
 
   // コードセルのレンダラー：青いリンク風テキスト（クリックは onCellClicked で処理）
   const CodeCellRenderer = useCallback((params: ICellRendererParams<StockRecord>) => {
@@ -18,25 +27,6 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
         {params.value}
       </span>
     );
-  }, []);
-
-  // 購入判定セルのレンダラー
-  const StatusCellRenderer = useCallback((params: ICellRendererParams<StockRecord>) => {
-    const s = params.value;
-    if (s === "✅購入水準")
-      return <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: "9999px", fontSize: "12px", fontWeight: "bold" }}>{s}</span>;
-    if (s === "⏳下落待ち")
-      return <span style={{ background: "#fef9c3", color: "#854d0e", padding: "2px 8px", borderRadius: "9999px", fontSize: "12px", fontWeight: "bold" }}>{s}</span>;
-    if (s === "❌購入非推奨")
-      return <span style={{ background: "#fee2e2", color: "#991b1b", padding: "2px 8px", borderRadius: "9999px", fontSize: "12px", fontWeight: "bold" }}>{s}</span>;
-    if (s === "⚠️B/S要確認")
-      return <span style={{ background: "#fffbeb", color: "#92400e", padding: "2px 8px", borderRadius: "9999px", fontSize: "12px", fontWeight: "bold" }}>{s}</span>;
-    return <span>{s ?? "-"}</span>;
-  }, []);
-
-  // スコアセルのレンダラー
-  const ScoreCellRenderer = useCallback((params: ICellRendererParams<StockRecord>) => {
-    return <span style={{ fontWeight: "bold", color: "#2563eb" }}>{params.value ?? "-"} 点</span>;
   }, []);
 
   const ReliabilityCellRenderer = useCallback((params: ICellRendererParams<StockRecord>) => {
@@ -54,17 +44,20 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
       {
         field: "code",
         headerName: "コード",
-        width: 90,
+        width: isMobile ? 78 : 90,
         pinned: "left",
+        lockPinned: true,
+        suppressMovable: true,
         cellRenderer: CodeCellRenderer,
       },
-      { field: "★企業名", headerName: "企業名", width: 180, pinned: "left" },
       {
-        field: "status",
-        headerName: "購入判定",
-        width: 130,
+        field: "★企業名",
+        headerName: "企業名",
+        width: isMobile ? 136 : 190,
         pinned: "left",
-        cellRenderer: StatusCellRenderer,
+        lockPinned: true,
+        suppressMovable: true,
+        tooltipField: "★企業名",
       },
       {
         field: "bsReliability",
@@ -73,15 +66,6 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
         cellRenderer: ReliabilityCellRenderer,
       },
       { field: "pyo", headerName: "P/與", width: 90, type: "numericColumn" },
-      {
-        field: "score",
-        headerName: "バリュースコア",
-        width: 130,
-        type: "numericColumn",
-        cellRenderer: ScoreCellRenderer,
-      },
-      { field: "targetPrice", headerName: "70点_目安株価(円)", width: 160, type: "numericColumn" },
-      { field: "dropRate", headerName: "70点_下落待ち(%)", width: 160, type: "numericColumn" },
       { field: "PBR", headerName: "PBR(倍)", width: 90, type: "numericColumn" },
       { field: "PER", headerName: "PER(倍)", width: 90, type: "numericColumn" },
       { field: "配当利回り_pct", headerName: "配当利回り(%)", width: 130, type: "numericColumn" },
@@ -103,7 +87,7 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
       { field: "★市場区分", headerName: "市場", width: 100 },
       { field: "★業種", headerName: "業種", width: 120 },
     ],
-    [CodeCellRenderer, StatusCellRenderer, ScoreCellRenderer, ReliabilityCellRenderer]
+    [CodeCellRenderer, ReliabilityCellRenderer, isMobile]
   );
 
   const defaultColDef = useMemo(
@@ -119,14 +103,15 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
   }, [router]);
 
   return (
-    <div style={{ height: "75vh", width: "100%" }}>
+    <div className="stock-grid h-[72dvh] min-h-[28rem] w-full md:h-[75vh]">
       <AgGridReact
         theme={themeQuartz}
         rowData={rowData}
         columnDefs={colDefs}
         defaultColDef={defaultColDef}
-        pagination={true}
-        paginationPageSize={100}
+        rowHeight={isMobile ? 38 : 42}
+        headerHeight={isMobile ? 42 : 46}
+        animateRows={false}
         onCellClicked={onCellClicked}
       />
     </div>

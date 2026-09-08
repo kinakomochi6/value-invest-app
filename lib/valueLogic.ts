@@ -165,12 +165,11 @@ export function calculatePyo(data: StockRecord) {
     && typeof referencePyo === "number"
   );
   const p_yo: number | "-" = calculationEligible ? referencePyo : "-";
-  const scoreEligible = calculationEligible;
 
   let reliability = "要注意";
   if (totalAssets <= 0 || totalLiabilities < 0 || realNetAssets <= 0) {
     reliability = "計算不可";
-  } else if (scoreEligible) {
+  } else if (calculationEligible) {
     reliability = "検証済み";
   } else if (!analysisMap) {
     reliability = "旧方式";
@@ -194,65 +193,11 @@ export function calculatePyo(data: StockRecord) {
     P_與_注意事項: warnings,
     P_與_参考値: referencePyo,
     P_與_計算可能: calculationEligible,
-    P_與_スコア利用可: scoreEligible,
     P_與: p_yo,
   };
 }
 
-// 2. バリュースコアの計算（グラデーション採点版）
-export function calculateValueScore(data: StockRecord, pyoData: StockRecord) {
-  let score = 0;
-  const messages: string[] = [];
-  const p_yo = pyoData["P_與"];
-  const pbr = getNumber(data, 'PBR');
-  const roe = getNumber(data, 'ROE_pct');
-  const real_estate_profit = getNumber(data, '不動産_含み益_億');
-  const sec_profit = getNumber(data, '有価証券_含み益_億');
-  const market_cap = getNumber(data, '時価総額_億');
-
-  // ① P/與 (Max 40点)
-  const pyoScoreEligible = pyoData["P_與_スコア利用可"] === true;
-  if (pyoScoreEligible && typeof p_yo === 'number' && p_yo > 0) {
-    let score_pyo = 0;
-    if (p_yo <= 0.5) score_pyo = 40;
-    else if (p_yo < 1.0) score_pyo = 40 - ((p_yo - 0.5) / 0.5) * 40;
-    score += score_pyo;
-    if (p_yo <= 0.5) messages.push(`🔥 【超絶割安】実質PBR(P/與)が0.5以下 (+${Math.floor(score_pyo)}点)`);
-    else if (p_yo < 1.0) messages.push(`✅ 【割安】実質PBR(P/與)が1.0未満 (+${Math.floor(score_pyo)}点)`);
-  } else {
-    messages.push("B/Sの信頼性確認が必要なため、P/與はスコアに加算していません。");
-  }
-
-  // ② 表面PBR (Max 20点)
-  if (typeof pbr === 'number' && pbr > 0) {
-    let score_pbr = 0;
-    if (pbr <= 0.5) score_pbr = 20;
-    else if (pbr < 1.0) score_pbr = 20 - ((pbr - 0.5) / 0.5) * 20;
-    score += score_pbr;
-    if (pbr > 0 && pbr <= 0.5) messages.push(`✅ 表面上のPBRも0.5倍以下 (+${Math.floor(score_pbr)}点)`);
-  }
-
-  // ③ 含み益インパクト (Max 30点)
-  const total_hidden_profit = real_estate_profit + sec_profit;
-  if (market_cap > 0 && total_hidden_profit > 0) {
-    const hidden_ratio = total_hidden_profit / market_cap;
-    const score_hidden = Math.min(30.0, hidden_ratio * 30.0);
-    score += score_hidden;
-    if (hidden_ratio >= 1.0) messages.push(`🔥 含み益(${total_hidden_profit.toFixed(1)}億)が時価総額以上！ (+${Math.floor(score_hidden)}点)`);
-    else if (hidden_ratio >= 0.3) messages.push(`✅ 時価総額に対して30%以上の含み益あり (+${Math.floor(score_hidden)}点)`);
-  }
-
-  // ④ ROE (Max 10点)
-  if (typeof roe === 'number' && roe > 0) {
-    const score_roe = roe >= 8.0 ? 10.0 : (roe / 8.0) * 10.0;
-    score += score_roe;
-    if (roe >= 8) messages.push(`✅ ROE8%以上で稼ぐ力あり (+${Math.floor(score_roe)}点)`);
-  }
-
-  return { score: Math.floor(score), messages };
-}
-
-// 3. データ状態（B/Sの異常）チェック
+// 2. データ状態（B/Sの異常）チェック
 export function checkBsAnomaly(data: StockRecord) {
   const anomalies: string[] = [];
   const total_assets = getNumber(data, '★資産合計');
@@ -269,56 +214,4 @@ export function checkBsAnomaly(data: StockRecord) {
     }
   }
   return anomalies;
-}
-
-// 4. 目標株価の逆算シミュレーション
-export function calculateTargetPrice(
-  data: StockRecord,
-  currentScore: number,
-  pyoData: StockRecord,
-) {
-  const current_price = getNumber(data, '株価');
-  if (current_price <= 0) return { status: "✖️データなし", targetPrice: null, dropRate: null };
-  if (pyoData["P_與_スコア利用可"] !== true) {
-    return { status: "⚠️B/S要確認", targetPrice: null, dropRate: null };
-  }
-  if (currentScore >= 70) return { status: "✅購入水準", targetPrice: current_price, dropRate: 0.0 };
-
-  // シミュレーション用のコピーを作成（TypeScript流）
-  const simDataMin = { ...data };
-  simDataMin['時価総額_億'] = getNumber(data, '時価総額_億') * 0.0001;
-  simDataMin['PBR'] = getNumber(data, 'PBR') * 0.0001;
-  const simPyoMin = calculatePyo(simDataMin);
-  const minScoreData = calculateValueScore(simDataMin, simPyoMin);
-  
-  if (minScoreData.score < 70) return { status: "❌購入非推奨", targetPrice: null, dropRate: null };
-
-  let low = 0.0001;
-  let high = 1.0;
-  let best_r: number | null = null;
-  
-  for (let i = 0; i < 20; i++) {
-    const mid = (low + high) / 2;
-    const simData = { ...data };
-    simData['時価総額_億'] = getNumber(data, '時価総額_億') * mid;
-    simData['PBR'] = getNumber(data, 'PBR') * mid;
-    
-    const simPyo = calculatePyo(simData);
-    const scoreData = calculateValueScore(simData, simPyo);
-    
-    if (scoreData.score >= 70) {
-      best_r = mid;
-      low = mid;
-    } else {
-      high = mid;
-    }
-  }
-
-  if (best_r !== null) {
-    const target_price = Math.floor(current_price * best_r);
-    const drop_rate = Number(((1 - best_r) * 100).toFixed(1));
-    return { status: "⏳下落待ち", targetPrice: target_price, dropRate: drop_rate };
-  } else {
-    return { status: "❌購入非推奨", targetPrice: null, dropRate: null };
-  }
 }

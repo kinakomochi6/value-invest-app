@@ -24,8 +24,6 @@ const {
   ANALYSIS_BS_FIELD,
   ASSET_MULTIPLIERS,
   calculatePyo,
-  calculateTargetPrice,
-  calculateValueScore,
 } = loadedModule.exports;
 
 function completeAnalysisMap(values = {}) {
@@ -51,7 +49,7 @@ function verifiedData(map, overrides = {}) {
   };
 }
 
-test("verified and reconciled canonical data can contribute to the score", () => {
+test("verified and reconciled canonical data publishes P/與", () => {
   const map = completeAnalysisMap({
     "流動_現金及び預金": 100,
     "流動_売掛金": 50,
@@ -62,40 +60,27 @@ test("verified and reconciled canonical data can contribute to the score", () =>
   assert.equal(result["倍率計算のみのBS"], 125);
   assert.equal(result["P_與"], 0.8);
   assert.equal(result["P_與_信頼区分"], "検証済み");
-  assert.equal(result["P_與_スコア利用可"], true);
+  assert.equal(result["P_與_計算可能"], true);
   assert.equal(result["B_S資産合計差額"], 0);
 });
 
-test("partial data is withheld from display, score, and target price", () => {
+test("partial data is withheld from P/與 display", () => {
   const map = completeAnalysisMap({ "流動_現金及び預金": 100 });
   const data = verifiedData(map, { "B/S_検証状態": "partial" });
   const pyo = calculatePyo(data);
-  const score = calculateValueScore(data, pyo);
-  const target = calculateTargetPrice(data, score.score, pyo);
 
   assert.equal(pyo["P_與"], "-");
   assert.equal(pyo["P_與_参考値"], 1);
   assert.equal(pyo["P_與_計算可能"], false);
-  assert.equal(pyo["P_與_スコア利用可"], false);
-  assert.equal(score.score, 0);
-  assert.equal(target.status, "⚠️B/S要確認");
 });
 
-test("a missing PBR represented by zero does not receive value points", () => {
-  const map = completeAnalysisMap({ "流動_現金及び預金": 100 });
-  const data = verifiedData(map, { "B/S_検証状態": "partial", PBR: 0 });
-  const pyo = calculatePyo(data);
-
-  assert.equal(calculateValueScore(data, pyo).score, 0);
-});
-
-test("a material canonical asset gap disables investment decisions", () => {
+test("a material canonical asset gap withholds P/與", () => {
   const map = completeAnalysisMap({ "流動_現金及び預金": 80 });
   const result = calculatePyo(verifiedData(map, { "★資産合計": 100 }));
 
   assert.equal(result["B_S資産合計差額"], 20);
   assert.equal(result["P_與_信頼区分"], "要注意");
-  assert.equal(result["P_與_スコア利用可"], false);
+  assert.equal(result["P_與_計算可能"], false);
 });
 
 test("legacy or incomplete canonical data is never mixed with the new schema", () => {
@@ -112,7 +97,7 @@ test("legacy or incomplete canonical data is never mixed with the new schema", (
 
   assert.equal(result["倍率計算のみのBS"], 50);
   assert.equal(result["P_與_計算方式"], "旧方式");
-  assert.equal(result["P_與_スコア利用可"], false);
+  assert.equal(result["P_與_計算可能"], false);
 });
 
 test("an unsupported canonical version is withheld from display", () => {
@@ -123,7 +108,7 @@ test("an unsupported canonical version is withheld from display", () => {
 
   assert.equal(result["P_與"], "-");
   assert.equal(result["P_與_参考値"], 1);
-  assert.equal(result["P_與_スコア利用可"], false);
+  assert.equal(result["P_與_計算可能"], false);
   assert.match(result["P_與_注意事項"].join(" "), /未対応/);
 });
 
