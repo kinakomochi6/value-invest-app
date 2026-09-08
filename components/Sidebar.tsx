@@ -1,106 +1,129 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { Building2, Database, ListFilter, Menu, Search, X } from "lucide-react";
+
+const STOCK_CODE_PATTERN = /^[0-9][0-9A-Z]{3}$/;
 
 export default function Sidebar() {
   const [code, setCode] = useState("");
-  const [isOpen, setIsOpen] = useState(false); // スマホ用の開閉ステータス
+  const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
-  // ページを移動したら、スマホのメニューを自動で閉じる
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault(); 
-    if (code.length >= 4) {
-      router.push(`/company/${code}`);
-      setCode(""); 
-      setIsOpen(false); // 検索した時もメニューを閉じる
-    } else {
-      alert("4桁の証券コードを入力してください。");
+  const handleSearch = (event: React.FormEvent) => {
+    event.preventDefault();
+    const normalizedCode = code.trim().toUpperCase();
+    if (!STOCK_CODE_PATTERN.test(normalizedCode)) {
+      window.alert("4文字の証券コードを入力してください。");
+      return;
     }
+
+    router.push(`/company/${normalizedCode}`);
+    setCode("");
+    setIsOpen(false);
   };
+
+  const navigation = [
+    { href: "/", label: "銘柄検索", icon: Search },
+    { href: "/companies", label: "全銘柄一覧", icon: ListFilter },
+  ];
 
   return (
     <>
-      {/* スマホ専用：画面上部に固定されるヘッダー＆ハンバーガー（三本線）ボタン */}
-      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-gray-800 text-white z-40 flex items-center px-4 shadow-md">
-        <button 
+      <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center gap-3 border-b border-[var(--md-outline-variant)] bg-[var(--md-surface-container-lowest)] px-3 md:hidden">
+        <button
+          type="button"
+          aria-label="メニューを開く"
           onClick={() => setIsOpen(true)}
-          className="p-2 mr-4 bg-gray-700 rounded focus:outline-none"
+          className="m3-icon-button"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+          <Menu size={22} />
         </button>
-        <h1 className="font-bold text-lg">企業バリュー検索</h1>
-      </div>
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--md-primary-container)] text-[var(--md-on-primary-container)]">
+          <Building2 size={19} />
+        </span>
+        <span className="font-extrabold text-[var(--md-on-surface)]">企業バリュー検索</span>
+      </header>
 
-      {/* スマホ専用：メニューを開いている時に、後ろの画面を暗くする黒い膜 */}
       {isOpen && (
-        <div 
-          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+        <button
+          type="button"
+          aria-label="メニューを閉じる"
+          className="fixed inset-0 z-40 bg-black/35 backdrop-blur-[2px] md:hidden"
           onClick={() => setIsOpen(false)}
-        ></div>
+        />
       )}
 
-      {/* サイドバー本体（PCでは常に表示、スマホではスライドして出てくる） */}
-      <aside className={`fixed top-0 left-0 z-50 h-full w-64 bg-gray-800 text-white p-6 flex flex-col shadow-xl transition-transform duration-300 ease-in-out transform ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
-        
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <span>🏢</span> バリュー検索
-          </h2>
-          {/* スマホ専用：閉じる（×）ボタン */}
-          <button className="md:hidden text-gray-400 hover:text-white" onClick={() => setIsOpen(false)}>
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-[var(--md-outline-variant)] bg-[var(--md-surface-container-low)] px-4 py-5 shadow-[var(--md-shadow-high)] transition-transform duration-300 ease-out md:translate-x-0 md:shadow-none ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
+      >
+        <div className="mb-7 flex items-center gap-3 px-2">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--md-primary)] text-[var(--md-on-primary)] shadow-sm">
+            <Building2 size={23} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold text-[var(--md-primary)]">VALUE LENS</p>
+            <h2 className="truncate text-base font-extrabold text-[var(--md-on-surface)]">企業バリュー検索</h2>
+          </div>
+          <button
+            type="button"
+            aria-label="メニューを閉じる"
+            className="m3-icon-button md:hidden"
+            onClick={() => setIsOpen(false)}
+          >
+            <X size={21} />
           </button>
         </div>
-        
-        <div className="mb-10">
-          <p className="text-xs text-gray-400 mb-3 font-bold tracking-wider">メインメニュー</p>
-          <nav className="space-y-2">
-            <Link 
-              href="/" 
-              onClick={() => setIsOpen(false)}
-              className={`block p-3 rounded-lg transition-colors ${pathname === '/' ? 'bg-blue-600 font-bold' : 'hover:bg-gray-700'}`}
-            >
-              🔍 銘柄検索
-            </Link>
-            <Link
-              href="/companies"
-              onClick={() => setIsOpen(false)}
-              className={`block p-3 rounded-lg transition-colors ${pathname === '/companies' ? 'bg-blue-600 font-bold' : 'hover:bg-gray-700'}`}
-            >
-              📋 全銘柄一覧
-            </Link>
-          </nav>
-        </div>
 
-        <div className="mb-8">
-          <p className="text-xs text-gray-400 mb-3 font-bold tracking-wider">🔍 個別銘柄を検索</p>
-          <form onSubmit={handleSearch} className="flex flex-col gap-3">
-            {/* ★修正：Tailwindのバグを無視するため、直接「白背景・黒文字」を強制指定！ */}
-            <input 
-              type="text" 
-              maxLength={4}
-              placeholder="証券コード (例: 1377)" 
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              style={{ backgroundColor: '#ffffff', color: '#000000' }}
-              className="p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
-            />
-            <button 
-              type="submit" 
-              className="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-lg font-bold transition-colors shadow-lg"
-            >
-              検索する
-            </button>
-          </form>
-        </div>
+        <nav aria-label="メインメニュー" className="space-y-1">
+          {navigation.map(({ href, label, icon: Icon }) => {
+            const active = pathname === href;
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setIsOpen(false)}
+                className={`flex min-h-12 items-center gap-3 rounded-full px-4 text-sm font-bold ${active ? "bg-[var(--md-secondary-container)] text-[var(--md-on-secondary-container)]" : "text-[var(--md-on-surface-variant)] hover:bg-[var(--md-surface-container-high)]"}`}
+              >
+                <Icon size={20} strokeWidth={active ? 2.6 : 2} />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
 
-        <div className="mt-auto pt-8 border-t border-gray-700">
-          <p className="text-xs text-gray-400 leading-relaxed">
-            データソース:<br/>
+        <div className="my-6 h-px bg-[var(--md-outline-variant)]" />
+
+        <form onSubmit={handleSearch} className="space-y-3">
+          <label htmlFor="sidebar-stock-code" className="m3-label px-1">
+            証券コード
+          </label>
+          <input
+            id="sidebar-stock-code"
+            type="text"
+            inputMode="text"
+            autoCapitalize="characters"
+            maxLength={4}
+            placeholder="7203 / 130A"
+            value={code}
+            onChange={(event) => setCode(event.target.value.toUpperCase().replace(/[^0-9A-Z]/g, ""))}
+            className="m3-input !min-h-12"
+          />
+          <button type="submit" className="m3-primary-button w-full !min-h-11">
+            <Search size={18} />
+            検索
+          </button>
+        </form>
+
+        <div className="mt-auto border-t border-[var(--md-outline-variant)] px-2 pt-5">
+          <div className="mb-2 flex items-center gap-2 text-[var(--md-on-surface-variant)]">
+            <Database size={16} />
+            <span className="text-xs font-bold">DATA SOURCES</span>
+          </div>
+          <p className="text-xs leading-5 text-[var(--md-on-surface-variant)]">
             JPX / Yahoo Finance / EDINET
           </p>
         </div>

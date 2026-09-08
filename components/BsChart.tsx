@@ -11,12 +11,12 @@ const getNumber = (data: StockRecord, key: string) => {
 export default function BsChart({ data }: { data: StockRecord }) {
   const chartData = [
     {
-      category: '資産 (Assets)',
+      category: '資産',
       総資産: getNumber(data, '★資産合計'),
       negative_pad: 0,
     },
     {
-      category: '負債・純資産 (Liabilities/NA)',
+      category: '負債・純資産',
       総資産: 0,
       負債: getNumber(data, '★負債合計'),
       純資産: getNumber(data, '★純資産合計'),
@@ -24,28 +24,27 @@ export default function BsChart({ data }: { data: StockRecord }) {
   ];
 
   return (
-    <div style={{ width: '100%', height: 450, minWidth: 0 }} className="p-4 bg-white rounded border">
+    <div className="h-[320px] min-w-0 w-full md:h-[420px]">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart 
           data={chartData} 
-          margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-          // ★修正箇所：固定のピクセル幅を削除し、割合（Gap）と上限（maxBarSize）で自動調整させます
-          barCategoryGap="25%"
-          maxBarSize={160} 
+          margin={{ top: 16, right: 12, left: 4, bottom: 12 }}
+          barCategoryGap="30%"
+          maxBarSize={150}
         >
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-          <XAxis dataKey="category" tick={{ fontSize: 12 }} />
-          <YAxis tick={{ fontSize: 12 }} unit=" 億円" width={60} />
+          <CartesianGrid strokeDasharray="3 4" vertical={false} stroke="#dfe6e2" />
+          <XAxis dataKey="category" tick={{ fontSize: 11, fill: '#3f4945' }} axisLine={{ stroke: '#bec9c4' }} tickLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: '#3f4945' }} unit=" 億" width={54} axisLine={false} tickLine={false} />
           <Tooltip 
-            cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }} 
-            formatter={(value) => [`${value} 億円`]} 
-            contentStyle={{ borderRadius: '8px', border: '1px solid #ddd', padding: '10px' }}
+            cursor={{ fill: 'rgba(0, 107, 87, 0.07)' }}
+            formatter={(value) => [`${value} 億円`]}
+            contentStyle={{ borderRadius: '8px', border: '1px solid #bec9c4', padding: '10px', boxShadow: '0 5px 18px rgba(18, 35, 29, 0.12)' }}
           />
-          <Legend wrapperStyle={{ paddingTop: '15px' }} />
+          <Legend wrapperStyle={{ paddingTop: '12px', fontSize: '11px' }} />
           
-          <Bar dataKey="総資産" stackId="a" fill="#3498db" radius={[4, 4, 0, 0]} name="総資産" />
-          <Bar dataKey="負債" stackId="a" fill="#e74c3c" name="負債" />
-          <Bar dataKey="純資産" stackId="a" fill="#2ecc71" radius={[4, 4, 0, 0]} name="純資産" />
+          <Bar dataKey="総資産" stackId="a" fill="#006b57" radius={[8, 8, 0, 0]} name="総資産" />
+          <Bar dataKey="負債" stackId="a" fill="#ba1a1a" name="負債" />
+          <Bar dataKey="純資産" stackId="a" fill="#d6ad00" radius={[8, 8, 0, 0]} name="純資産" />
           
         </BarChart>
       </ResponsiveContainer>

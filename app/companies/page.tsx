@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AlertTriangle, ListFilter, LoaderCircle, RefreshCw } from "lucide-react";
 import CompanyTable from "@/components/CompanyTable";
 import type { StockRecord } from "@/lib/types";
 
@@ -42,48 +43,58 @@ export default function CompaniesPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-gray-50 px-2 py-4 sm:px-4 md:p-8">
+    <main className="m3-page !px-2 sm:!px-4 md:!px-6">
       <div className="max-w-full">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-800 sm:text-3xl">全銘柄一覧</h1>
-          <p className="mt-2 text-gray-500">
+        <header className="mb-5 flex flex-wrap items-end justify-between gap-3 px-2 md:px-0">
+          <div>
+            <p className="mb-1 text-xs font-extrabold text-[var(--md-primary)]">MARKET VIEW</p>
+            <h1 className="flex items-center gap-3 text-2xl font-black text-[var(--md-on-surface)] sm:text-3xl">
+              <span className="m3-section-icon"><ListFilter size={19} /></span>
+              全銘柄一覧
+            </h1>
+            <p className="mt-2 text-sm text-[var(--md-on-surface-variant)]">
             コードまたは企業名をクリックすると銘柄詳細ページへ移動します。
-          </p>
-        </div>
+            </p>
+          </div>
+          {!loading && !error && rowData.length > 0 && (
+            <span className="rounded-full bg-[var(--md-secondary-container)] px-4 py-2 text-sm font-extrabold text-[var(--md-on-secondary-container)]">
+              {rowData.length.toLocaleString()} 銘柄
+            </span>
+          )}
+        </header>
 
         {loading && (
-          <div className="flex h-64 items-center justify-center text-lg text-gray-500">
-            <span className="animate-pulse">データを読み込み中...</span>
+          <div className="flex h-64 flex-col items-center justify-center gap-4 text-[var(--md-on-surface-variant)]">
+            <LoaderCircle className="animate-spin text-[var(--md-primary)]" size={36} />
+            <span className="text-sm font-bold">全銘柄データを読み込み中</span>
           </div>
         )}
 
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-            <strong>エラー:</strong> {error}
-            <br />
+          <div className="mx-2 flex flex-wrap items-center gap-3 rounded-lg bg-[var(--md-error-container)] p-4 text-[var(--md-error)] md:mx-0">
+            <AlertTriangle size={21} />
+            <strong className="flex-1">{error}</strong>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="mt-2 inline-block text-blue-600 underline"
+              className="m3-primary-button !min-h-10 !bg-[var(--md-error)] !px-4"
             >
-              再読み込みする
+              <RefreshCw size={17} />
+              再読み込み
             </button>
           </div>
         )}
 
         {!loading && !error && rowData.length === 0 && (
-          <div className="flex h-64 items-center justify-center text-gray-500">
+          <div className="flex h-64 items-center justify-center text-[var(--md-on-surface-variant)]">
             データが0件でした。Firestoreに銘柄データが存在するか確認してください。
           </div>
         )}
 
         {!loading && !error && rowData.length > 0 && (
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-100 px-4 py-2 text-sm text-gray-500">
-              {rowData.length.toLocaleString()}件の銘柄が見つかりました
-            </div>
+          <section className="m3-surface overflow-hidden">
             <CompanyTable rowData={rowData} />
-          </div>
+          </section>
         )}
       </div>
     </main>

@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { ArrowRight, Building2, ChartNoAxesCombined, ListFilter, Search } from "lucide-react";
+
+const STOCK_CODE_PATTERN = /^[0-9][0-9A-Z]{3}$/;
 
 export default function Home() {
   const [code, setCode] = useState("");
@@ -11,9 +14,9 @@ export default function Home() {
 
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const normalizedCode = code.trim();
+    const normalizedCode = code.trim().toUpperCase();
 
-    if (!/^[0-9][0-9A-Z]{3}$/.test(normalizedCode)) {
+    if (!STOCK_CODE_PATTERN.test(normalizedCode)) {
       setError("4文字の証券コードを入力してください。");
       return;
     }
@@ -23,22 +26,37 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="mx-auto flex max-w-5xl flex-col gap-8">
-        <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm md:p-8">
-          <div className="mb-6">
-            <p className="mb-2 text-sm font-bold text-blue-700">企業バリュー検索</p>
-            <h1 className="text-3xl font-bold text-gray-900 md:text-4xl">
-              証券コードから銘柄を分析
+    <main className="m3-page">
+      <div className="mx-auto max-w-5xl">
+        <header className="mb-8 flex items-start gap-4 pt-2 md:mb-12 md:pt-8">
+          <span className="m3-section-icon mt-1 !h-12 !w-12 bg-[var(--md-primary)] text-[var(--md-on-primary)]">
+            <Building2 size={25} />
+          </span>
+          <div>
+            <p className="mb-1 text-xs font-extrabold text-[var(--md-primary)]">VALUE LENS</p>
+            <h1 className="text-3xl font-black text-[var(--md-on-surface)] md:text-5xl">
+              企業バリュー検索
             </h1>
-            <p className="mt-3 max-w-2xl text-gray-600">
-              個別銘柄のP/與、財務指標、B/S、含み益を確認できます。
+            <p className="mt-2 text-sm text-[var(--md-on-surface-variant)] md:text-base">
+              日本株の貸借対照表と企業価値を確認
             </p>
           </div>
+        </header>
 
-          <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row">
+        <section className="m3-tonal-section mb-5 overflow-hidden p-5 md:p-8">
+          <div className="mb-6 flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--md-primary)] text-[var(--md-on-primary)]">
+              <Search size={21} />
+            </span>
+            <div>
+              <p className="text-xs font-bold text-[var(--md-secondary)]">STOCK SEARCH</p>
+              <h2 className="text-xl font-extrabold md:text-2xl">証券コードから分析</h2>
+            </div>
+          </div>
+
+          <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="min-w-0 flex-1">
-              <label htmlFor="stock-code" className="mb-2 block text-sm font-bold text-gray-700">
+              <label htmlFor="stock-code" className="m3-label mb-2 block">
                 証券コード
               </label>
               <input
@@ -47,50 +65,40 @@ export default function Home() {
                 inputMode="text"
                 autoCapitalize="characters"
                 maxLength={4}
-                placeholder="例: 7203 / 130A"
+                placeholder="7203 / 130A"
                 value={code}
                 onChange={(event) => {
                   setCode(event.target.value.toUpperCase().replace(/[^0-9A-Z]/g, ""));
                   setError(null);
                 }}
-                className="h-12 w-full rounded border border-gray-300 bg-white px-4 text-lg text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="m3-input font-bold"
               />
-              {error && <p className="mt-2 text-sm font-bold text-red-600">{error}</p>}
+              {error && <p className="mt-2 text-sm font-bold text-[var(--md-error)]">{error}</p>}
             </div>
 
-            <div className="flex items-end">
-              <button
-                type="submit"
-                className="h-12 w-full rounded bg-blue-600 px-6 font-bold text-white transition-colors hover:bg-blue-500 sm:w-auto"
-              >
-                分析する
-              </button>
-            </div>
+            <button type="submit" className="m3-primary-button sm:min-w-36">
+              <ChartNoAxesCombined size={20} />
+              分析する
+            </button>
           </form>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2">
-          <Link
-            href="/companies"
-            className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
-          >
-            <p className="text-sm font-bold text-blue-700">一覧から探す</p>
-            <h2 className="mt-2 text-xl font-bold text-gray-900">全銘柄一覧へ</h2>
-            <p className="mt-2 text-sm text-gray-600">
-              P/與、PBR、配当利回りなどで並び替えながら銘柄を確認できます。
-            </p>
-          </Link>
-
-          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-bold text-gray-500">確認できる項目</p>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-gray-700">
-              <span className="rounded bg-gray-100 px-3 py-2">P/與</span>
-              <span className="rounded bg-gray-100 px-3 py-2">PBR・PER</span>
-              <span className="rounded bg-gray-100 px-3 py-2">B/Sグラフ</span>
-              <span className="rounded bg-gray-100 px-3 py-2">不動産・有価証券</span>
-            </div>
+        <Link
+          href="/companies"
+          className="group flex min-h-24 items-center gap-4 rounded-lg border border-[var(--md-outline-variant)] bg-[var(--md-surface-container-lowest)] p-5 shadow-[var(--md-shadow)] hover:bg-[var(--md-surface-container-low)] md:p-6"
+        >
+          <span className="m3-section-icon !h-12 !w-12 bg-[var(--md-tertiary-container)] text-[var(--md-on-tertiary-container)]">
+            <ListFilter size={23} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold text-[var(--md-tertiary)]">MARKET VIEW</p>
+            <h2 className="text-lg font-extrabold text-[var(--md-on-surface)] md:text-xl">全銘柄一覧</h2>
+            <p className="mt-1 text-sm text-[var(--md-on-surface-variant)]">P/與・財務指標・含み益で比較</p>
           </div>
-        </section>
+          <span className="m3-icon-button bg-[var(--md-surface-container)] group-hover:bg-[var(--md-primary-container)] group-hover:text-[var(--md-on-primary-container)]">
+            <ArrowRight size={21} />
+          </span>
+        </Link>
       </div>
     </main>
   );

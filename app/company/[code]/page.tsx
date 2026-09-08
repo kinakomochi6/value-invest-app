@@ -2,6 +2,18 @@ import { db } from "@/lib/firebaseAdmin";
 import { calculatePyo, checkBsAnomaly } from "@/lib/valueLogic";
 import BsChart from "@/components/BsChart";
 import Link from "next/link";
+import {
+  ArrowLeft,
+  BarChart3,
+  Building2,
+  Calculator,
+  CircleAlert,
+  Database,
+  Landmark,
+  ShieldCheck,
+  TrendingUp,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { StockRecord } from "@/lib/types";
 
 const displayValue = (value: unknown, fallback = "-") => {
@@ -10,207 +22,274 @@ const displayValue = (value: unknown, fallback = "-") => {
   return String(value);
 };
 
-// 簡易的なテーブル行を作るための部品
-const InfoRow = ({ label, value }: { label: string, value: unknown }) => (
-  <tr className="border-b border-gray-100"><th className="py-2 px-3 bg-gray-50 text-gray-600 font-normal w-1/2 text-left">{label}</th><td className="py-2 px-3 font-medium text-right">{displayValue(value)}</td></tr>
+const InfoRow = ({ label, value }: { label: string; value: unknown }) => (
+  <tr className="border-b border-[var(--md-outline-variant)] last:border-b-0">
+    <th className="w-1/2 bg-[var(--md-surface-container-low)] px-3 py-2.5 text-left text-xs font-semibold text-[var(--md-on-surface-variant)] sm:text-sm">
+      {label}
+    </th>
+    <td className="px-3 py-2.5 text-right text-xs font-bold text-[var(--md-on-surface)] sm:text-sm">
+      {displayValue(value)}
+    </td>
+  </tr>
 );
 
-// Firebaseの特殊な日付データを、ただの文字（YYYY/MM/DD）に変換する関数
-const formatDate = (val: unknown) => {
-  if (!val) return '-';
-  if (val && typeof val === 'object' && '_seconds' in val) {
-    return new Date((val as { _seconds: number })._seconds * 1000).toLocaleDateString('ja-JP');
+const SectionHeading = ({ icon: Icon, children }: { icon: LucideIcon; children: React.ReactNode }) => (
+  <h2 className="m3-section-title mb-4">
+    <span className="m3-section-icon"><Icon size={19} /></span>
+    {children}
+  </h2>
+);
+
+const formatDate = (value: unknown) => {
+  if (!value) return "-";
+  if (value && typeof value === "object" && "_seconds" in value) {
+    return new Date((value as { _seconds: number })._seconds * 1000).toLocaleDateString("ja-JP");
   }
-  return String(val);
+  return String(value);
 };
 
-// ★★★ 新規追加：Streamlit版の独自JSON並び順ロジックを完全再現する関数 ★★★
 function getOrderedRawData(data: StockRecord) {
   const rawKeys = Object.keys(data);
   const orderedData: StockRecord = {};
-  
-  // 1. 【優先】★で始まる項目（企業名、業種、資産合計、負債合計、純資産合計など）をアルファベット順
-  const starKeys = rawKeys.filter(k => k.startsWith('★')).sort();
-  starKeys.forEach(k => orderedData[k] = data[k]);
-  
-  // 2. 基本的なバリュー・還元・業績指標（★やB/Sプレフィックスなし）をアルファベット順
-  const bsPrefixes = ['流動_', '有形_', '無形_', '投資_', '流負_', '固負_', '純資_'];
-  const generalKeys = rawKeys.filter(k => 
-    !k.startsWith('★') && 
-    !bsPrefixes.some(prefix => k.startsWith(prefix))
+  const starKeys = rawKeys.filter((key) => key.startsWith("★")).sort();
+  starKeys.forEach((key) => orderedData[key] = data[key]);
+
+  const bsPrefixes = ["流動_", "有形_", "無形_", "投資_", "流負_", "固負_", "純資_"];
+  const generalKeys = rawKeys.filter((key) =>
+    !key.startsWith("★") && !bsPrefixes.some((prefix) => key.startsWith(prefix))
   ).sort();
-  generalKeys.forEach(k => orderedData[k] = data[k]);
-  
-  // 3. 貸借対照表 (B/S) 項目。指定されたプレフィックス順（ categorized visual order from Python）に、各グループ内でアルファベット順
-  bsPrefixes.forEach(prefix => {
-    rawKeys.filter(k => k.startsWith(prefix)).sort().forEach(k => {
-      orderedData[k] = data[k];
+  generalKeys.forEach((key) => orderedData[key] = data[key]);
+
+  bsPrefixes.forEach((prefix) => {
+    rawKeys.filter((key) => key.startsWith(prefix)).sort().forEach((key) => {
+      orderedData[key] = data[key];
     });
   });
-  
+
   return orderedData;
 }
 
 export default async function CompanyDetail({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   const doc = await db.collection("companies").doc(code).get();
-  
+
   if (!doc.exists) {
     return (
-      <main className="p-8"><h1 className="text-2xl font-bold text-red-600">データが見つかりません</h1><Link href="/" className="text-blue-500 underline mt-4 inline-block">← 一覧に戻る</Link></main>
+      <main className="m3-page">
+        <div className="mx-auto max-w-xl py-16 text-center">
+          <span className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--md-error-container)] text-[var(--md-error)]">
+            <CircleAlert size={27} />
+          </span>
+          <h1 className="text-2xl font-black">データが見つかりません</h1>
+          <Link href="/companies" className="m3-primary-button mt-6">
+            <ArrowLeft size={18} />
+            全銘柄一覧
+          </Link>
+        </div>
+      </main>
     );
   }
 
   const data: StockRecord = JSON.parse(JSON.stringify({ id: doc.id, ...doc.data() }));
   const pyoData = calculatePyo(data);
   const anomalies = checkBsAnomaly(data);
-  const pyoWarnings = Array.isArray(pyoData['P_與_注意事項'])
-    ? pyoData['P_與_注意事項'].filter((item): item is string => typeof item === 'string')
+  const pyoWarnings = Array.isArray(pyoData["P_與_注意事項"])
+    ? pyoData["P_與_注意事項"].filter((item): item is string => typeof item === "string")
     : [];
-  const pyoCalculationEligible = pyoData['P_與_計算可能'] === true;
-  const pyoReliability = displayValue(pyoData['P_與_信頼区分']);
-  const pyoDisplay = typeof pyoData['P_與'] === 'number'
-    ? `${pyoData['P_與']} 倍`
-    : '算出保留';
+  const pyoCalculationEligible = pyoData["P_與_計算可能"] === true;
+  const pyoReliability = displayValue(pyoData["P_與_信頼区分"]);
+  const pyoDisplay = typeof pyoData["P_與"] === "number" ? `${pyoData["P_與"]} 倍` : "算出保留";
 
-  // 指値シミュレーション用の計算関数
   const calcSimPrice = (targetPyo: number) => {
     if (!pyoCalculationEligible) return "-";
-    const currentPrice = typeof data['株価'] === "number" ? data['株価'] : 0;
-    const marketCap = typeof data['時価総額_億'] === "number" ? data['時価総額_億'] : 0;
-    const realNetAsset = typeof pyoData['実質純資産'] === "number" ? pyoData['実質純資産'] : 0;
+    const currentPrice = typeof data["株価"] === "number" ? data["株価"] : 0;
+    const marketCap = typeof data["時価総額_億"] === "number" ? data["時価総額_億"] : 0;
+    const realNetAsset = typeof pyoData["実質純資産"] === "number" ? pyoData["実質純資産"] : 0;
     if (currentPrice > 0 && marketCap > 0 && realNetAsset > 0) {
       return Math.floor(currentPrice * ((targetPyo * realNetAsset) / marketCap));
     }
     return "-";
   };
 
-  // ★ここで生データデータを独自の並び順に変換します！
   const orderedRawData = getOrderedRawData(data);
 
   return (
-    <main className="p-8 bg-gray-50 min-h-screen">
-      <Link href="/companies" className="text-blue-600 hover:underline font-bold mb-6 inline-block">← 全銘柄一覧に戻る</Link>
+    <main className="m3-page">
+      <div className="mx-auto max-w-7xl">
+        <Link
+          href="/companies"
+          className="mb-6 inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-sm font-bold text-[var(--md-primary)] hover:bg-[var(--md-secondary-container)]"
+        >
+          <ArrowLeft size={18} />
+          全銘柄一覧
+        </Link>
 
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-800">[{code}] {displayValue(data['★企業名'])}</h1>
-        <p className="text-gray-500 mt-2">
-          業種: {displayValue(data['★業種'])} | 市場: {displayValue(data['★市場区分'])} | 最終更新: {formatDate(data['データ最終更新日'])}
-        </p>
-      </div>
-
-      <div className={`mb-6 border-l-4 p-4 ${pyoCalculationEligible ? 'border-green-600 bg-green-50 text-green-900' : 'border-amber-500 bg-amber-50 text-amber-950'}`}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="font-bold">B/S分析品質: {pyoReliability}</p>
-          <p className="text-sm">
-            {displayValue(pyoData['P_與_計算方式'])} / 検証状態: {displayValue(data['B/S_検証状態'])}
-          </p>
-        </div>
-        <p className="mt-1 text-sm">最終正常B/S更新: {formatDate(data['B/S_正常更新日時'])}</p>
-        <p className="mt-1 text-sm">正常採用書類: {displayValue(data['B/S_正常更新書類'])}</p>
-        {pyoWarnings.length > 0 && (
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
-            {pyoWarnings.map((warning, index) => <li key={index}>{warning}</li>)}
-          </ul>
-        )}
-        {anomalies.length > 0 && (
-          <div className="mt-4 rounded border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
-            <p className="font-bold">B/Sデータ確認</p>
-            <ul className="ml-5 mt-2 list-disc space-y-1">
-              {anomalies.map((msg, i) => <li key={i}>{msg}</li>)}
-            </ul>
+        <header className="mb-7 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <span className="mb-3 inline-flex rounded-full bg-[var(--md-primary-container)] px-3 py-1 text-xs font-extrabold text-[var(--md-on-primary-container)]">
+              {code}
+            </span>
+            <h1 className="text-3xl font-black text-[var(--md-on-surface)] md:text-4xl">
+              {displayValue(data["★企業名"])}
+            </h1>
+            <p className="mt-2 text-sm text-[var(--md-on-surface-variant)]">
+              {displayValue(data["★業種"])} ・ {displayValue(data["★市場区分"])}
+            </p>
           </div>
-        )}
+          <p className="text-xs font-semibold text-[var(--md-on-surface-variant)]">
+            データ更新 {formatDate(data["データ最終更新日"])}
+          </p>
+        </header>
+
+        <section className={`mb-7 rounded-lg border-l-[6px] p-5 ${pyoCalculationEligible ? "border-[var(--md-primary)] bg-[var(--md-secondary-container)] text-[var(--md-on-secondary-container)]" : "border-[var(--md-tertiary)] bg-[var(--md-tertiary-container)] text-[var(--md-on-tertiary-container)]"}`}>
+          <div className="flex flex-wrap items-start gap-3">
+            {pyoCalculationEligible ? <ShieldCheck size={24} /> : <CircleAlert size={24} />}
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-extrabold">B/S分析品質: {pyoReliability}</p>
+                <p className="text-xs font-semibold">
+                  {displayValue(pyoData["P_與_計算方式"])} ・ {displayValue(data["B/S_検証状態"])}
+                </p>
+              </div>
+              <p className="mt-2 text-xs">最終正常B/S更新: {formatDate(data["B/S_正常更新日時"])}</p>
+              <p className="mt-1 break-words text-xs">正常採用書類: {displayValue(data["B/S_正常更新書類"])}</p>
+              {pyoWarnings.length > 0 && (
+                <ul className="mt-3 list-disc space-y-1 pl-5 text-xs">
+                  {pyoWarnings.map((warning, index) => <li key={index}>{warning}</li>)}
+                </ul>
+              )}
+              {anomalies.length > 0 && (
+                <ul className="mt-3 list-disc space-y-1 pl-5 text-xs font-semibold">
+                  {anomalies.map((message, index) => <li key={index}>{message}</li>)}
+                </ul>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-8">
+          <SectionHeading icon={TrendingUp}>企業価値サマリー</SectionHeading>
+          <div className="grid gap-3 md:grid-cols-3">
+            <article className="m3-surface border-t-4 border-t-[var(--md-primary)] p-5">
+              <p className="m3-label">P/與（実質PBR）</p>
+              <p className={`mt-2 text-3xl font-black ${pyoCalculationEligible ? "text-[var(--md-primary)]" : "text-[var(--md-tertiary)]"}`}>{pyoDisplay}</p>
+              <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{pyoCalculationEligible ? "検証済みデータ" : "B/S品質の確認が必要"}</p>
+            </article>
+            <article className="m3-surface p-5">
+              <p className="m3-label">実質純資産</p>
+              <p className="mt-2 text-2xl font-black">{displayValue(pyoData["実質純資産"])} <span className="text-sm font-bold">億円</span></p>
+              <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">換金価値ベース</p>
+            </article>
+            <article className="m3-surface p-5">
+              <p className="m3-label">時価総額</p>
+              <p className="mt-2 text-2xl font-black">{displayValue(data["時価総額_億"], "0")} <span className="text-sm font-bold">億円</span></p>
+              <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">現在の市場評価</p>
+            </article>
+          </div>
+        </section>
+
+        <section className="m3-tonal-section mb-8 p-5 md:p-6">
+          <div className="mb-5 flex items-center gap-3">
+            <span className="m3-section-icon bg-[var(--md-primary)] text-[var(--md-on-primary)]"><Calculator size={19} /></span>
+            <div>
+              <h2 className="font-extrabold">P/與 水準別の参考株価</h2>
+              <p className="mt-1 text-xs opacity-75">現在の実質純資産から逆算</p>
+            </div>
+          </div>
+          <div className="grid divide-y divide-[var(--md-outline-variant)] md:grid-cols-3 md:divide-x md:divide-y-0">
+            {[
+              { label: "P/與 0.7倍", value: calcSimPrice(0.7) },
+              { label: "P/與 0.5倍", value: calcSimPrice(0.5) },
+              { label: "P/與 0.3倍", value: calcSimPrice(0.3) },
+            ].map((item) => (
+              <div key={item.label} className="px-2 py-4 md:px-5 md:py-2">
+                <p className="text-xs font-bold opacity-70">{item.label}</p>
+                <p className="mt-1 text-xl font-black">{item.value} <span className="text-xs">円</span></p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-8">
+          <SectionHeading icon={BarChart3}>貸借対照表</SectionHeading>
+          <div className="m3-surface p-3 md:p-6">
+            <BsChart data={data} />
+          </div>
+        </section>
+
+        <section className="mb-8">
+          <SectionHeading icon={Calculator}>P/與 計算プロセス</SectionHeading>
+          <div className="m3-surface overflow-hidden">
+            <table className="w-full text-left">
+              <tbody>
+                <InfoRow label="B/S資産額（倍率計算後）" value={`${pyoData["倍率計算のみのBS"]} 億円`} />
+                <InfoRow label="有価証券 含み益の税金控除" value={`▲ ${pyoData["有価証券_税金控除額"]} 億円`} />
+                <InfoRow label="調整済 B/S資産" value={`${pyoData["調整済み資産額_BS"]} 億円`} />
+                <InfoRow label="調整済 不動産" value={`${pyoData["調整済み不動産額"]} 億円`} />
+                <InfoRow label="実質純資産" value={`${pyoData["実質純資産"]} 億円`} />
+                <InfoRow label="お買い得度" value={pyoData["お買い得度"]} />
+                <InfoRow label="大分類の資産合計" value={`${pyoData["B_S分類資産合計"]} 億円`} />
+                <InfoRow label="総資産との差額" value={`${pyoData["B_S資産合計差額"]} 億円`} />
+                <InfoRow label="計算方式" value={pyoData["P_與_計算方式"]} />
+                <tr className="bg-[var(--md-primary-container)]">
+                  <th className="w-1/2 px-3 py-3 text-left text-sm font-black">最終 P/與</th>
+                  <td className="px-3 py-3 text-right text-lg font-black text-[var(--md-primary)]">{pyoDisplay}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="mb-8 grid gap-5 lg:grid-cols-2">
+          <article className="m3-surface overflow-hidden">
+            <h2 className="flex items-center gap-2 border-b border-[var(--md-outline-variant)] px-4 py-4 font-extrabold">
+              <Landmark size={19} className="text-[var(--md-primary)]" />
+              株価・資産指標
+            </h2>
+            <table className="w-full"><tbody>
+              <InfoRow label="表面PBR（倍）" value={data["PBR"] || "-"} />
+              <InfoRow label="PER（倍）" value={data["PER"] || "-"} />
+              <InfoRow label="4年平均PER（倍）" value={data["4年平均PER_赤字除"] || "-"} />
+              <InfoRow label="現在株価（円）" value={data["株価"] || "-"} />
+              <InfoRow label="時価総額（億）" value={data["時価総額_億"] || "-"} />
+              <InfoRow label="不動産含み益（億）" value={data["不動産_含み益_億"] || 0} />
+              <InfoRow label="有価証券含み益（億）" value={data["有価証券_含み益_億"] || 0} />
+              <InfoRow label="純資産（億）" value={data["純資産_億"] || "-"} />
+              <InfoRow label="EPS（円）" value={data["EPS"] || "-"} />
+              <InfoRow label="ROE（%）" value={data["ROE_pct"] || "-"} />
+            </tbody></table>
+          </article>
+
+          <article className="m3-surface overflow-hidden">
+            <h2 className="flex items-center gap-2 border-b border-[var(--md-outline-variant)] px-4 py-4 font-extrabold">
+              <Building2 size={19} className="text-[var(--md-tertiary)]" />
+              還元・業績指標
+            </h2>
+            <table className="w-full"><tbody>
+              <InfoRow label="配当利回り（%）" value={data["配当利回り_pct"] || "-"} />
+              <InfoRow label="配当性向（%）" value={data["配当性向_pct"] || "-"} />
+              <InfoRow label="4年自社株買い利回り（%）" value={data["4年自社株買い利回り_pct"] || "-"} />
+              <InfoRow label="4年平均還元利回り（%）" value={data["4年平均還元利回り_pct"] || "-"} />
+              <InfoRow label="4年平均自社株買い（億）" value={data["4年平均自社株買い_億"] || "-"} />
+              <InfoRow label="4年平均総還元額（億）" value={data["4年平均総還元額_億"] || "-"} />
+              <InfoRow label="4年自社株買い比率（%）" value={data["4年自社株買い比率_pct"] || "-"} />
+              <InfoRow label="10年増配率（%）" value={data["10年増配率_pct"] || "-"} />
+              <InfoRow label="10年減配率（%）" value={data["10年減配率_pct"] || "-"} />
+              <InfoRow label="4年赤字率（%）" value={data["4年赤字率_pct"] || 0} />
+            </tbody></table>
+          </article>
+        </section>
+
+        <details className="m3-surface group cursor-pointer overflow-hidden">
+          <summary className="flex min-h-14 list-none items-center gap-3 px-4 font-bold text-[var(--md-on-surface-variant)]">
+            <Database size={18} />
+            すべての生データ
+          </summary>
+          <pre className="max-h-[32rem] overflow-auto border-t border-[var(--md-outline-variant)] bg-[var(--md-surface-container-low)] p-4 text-xs text-[var(--md-on-surface-variant)]">
+            {JSON.stringify(orderedRawData, null, 2)}
+          </pre>
+        </details>
       </div>
-
-      {/* SECTION 1: サマリー */}
-      <h2 className="text-2xl font-bold text-gray-800 border-b-2 border-blue-200 pb-2 mb-4">📊 サマリー</h2>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"><h3 className="text-sm text-gray-500 mb-1">P/與 (実質PBR)</h3><p className={`text-3xl font-bold ${pyoCalculationEligible ? 'text-blue-600' : 'text-amber-700'}`}>{pyoDisplay}</p><p className="mt-1 text-xs text-gray-500">{pyoCalculationEligible ? '検証済みデータ' : 'B/S品質の確認が必要です'}</p></div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"><h3 className="text-sm text-gray-500 mb-1">実質純資産 (換金価値)</h3><p className="text-3xl font-bold text-gray-800">{pyoData['実質純資産']} 億円</p></div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"><h3 className="text-sm text-gray-500 mb-1">時価総額 (買収価格)</h3><p className="text-3xl font-bold text-gray-800">{displayValue(data['時価総額_億'], "0")} 億円</p></div>
-      </div>
-
-      <div className="bg-indigo-50 p-6 rounded-lg shadow-sm border border-indigo-100 mb-8">
-        <h3 className="font-bold text-indigo-900 mb-2">🎯 P/與 水準別の目安株価 (指値シミュレーション)</h3>
-        <p className="text-xs text-indigo-700 mb-4">現在の実質純資産をベースに、P/與が特定の倍率まで低下した場合の株価を逆算しています。</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded border"><div className="text-xs text-gray-500">P/與 0.7倍 (割安ライン)</div><div className="text-xl font-bold">{calcSimPrice(0.7)} 円</div></div>
-          <div className="bg-white p-4 rounded border"><div className="text-xs text-gray-500">P/與 0.5倍 (超絶割安ライン)</div><div className="text-xl font-bold text-blue-600">{calcSimPrice(0.5)} 円</div></div>
-          <div className="bg-white p-4 rounded border"><div className="text-xs text-gray-500">P/與 0.3倍 (異常値・暴落時)</div><div className="text-xl font-bold text-red-600">{calcSimPrice(0.3)} 円</div></div>
-        </div>
-      </div>
-
-      {/* SECTION 2: B/Sグラフ */}
-      <h2 className="text-2xl font-bold text-gray-800 border-b-2 border-blue-200 pb-2 mb-4 mt-8">🥧 財務グラフ (B/S)</h2>
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
-        <BsChart data={data} />
-      </div>
-
-      {/* SECTION 3: 詳細データ */}
-      <h2 className="text-2xl font-bold text-gray-800 border-b-2 border-blue-200 pb-2 mb-4 mt-8">📋 詳細データ一覧</h2>
-      
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
-        <h3 className="font-bold text-gray-800 mb-4">🔍 P/與 計算プロセス</h3>
-        <table className="w-full text-sm text-left border rounded-lg overflow-hidden">
-          <tbody>
-            <InfoRow label="① B/S資産額 (倍率計算のみ)" value={`${pyoData['倍率計算のみのBS']} 億円`} />
-            <InfoRow label="② 有価証券 含み益 (税金控除)" value={`▲ ${pyoData['有価証券_税金控除額']} 億円`} />
-            <InfoRow label="③ 調整済 B/S資産 (①-②)" value={`${pyoData['調整済み資産額_BS']} 億円`} />
-            <InfoRow label="④ 調整済 不動産" value={`${pyoData['調整済み不動産額']} 億円`} />
-            <InfoRow label="⑤ 実質純資産 (③+④)" value={`${pyoData['実質純資産']} 億円`} />
-            <InfoRow label="⑥ お買い得度 (⑤÷時価総額)" value={pyoData['お買い得度']} />
-            <InfoRow label="大分類の資産合計" value={`${pyoData['B_S分類資産合計']} 億円`} />
-            <InfoRow label="総資産との差額" value={`${pyoData['B_S資産合計差額']} 億円`} />
-            <InfoRow label="計算方式" value={pyoData['P_與_計算方式']} />
-            <tr className="bg-blue-50 font-bold"><th className="py-2 px-3 w-1/2 text-left">🎯 最終 P/與 (1÷⑥)</th><td className="py-2 px-3 text-right text-blue-600">{pyoDisplay}</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="font-bold text-gray-800 mb-4">■ バリュー・株価・資産指標</h3>
-          <table className="w-full text-sm border rounded-lg overflow-hidden"><tbody>
-            <InfoRow label="表面PBR (倍)" value={data['PBR'] || '-'} />
-            <InfoRow label="PER (倍)" value={data['PER'] || '-'} />
-            <InfoRow label="4年平均PER_赤字除 (倍)" value={data['4年平均PER_赤字除'] || '-'} />
-            <InfoRow label="現在の株価 (円)" value={data['株価'] || '-'} />
-            <InfoRow label="時価総額 (億)" value={data['時価総額_億'] || '-'} />
-            <InfoRow label="🏢 不動産 含み益" value={`${data['不動産_含み益_億'] || 0} 億円`} />
-            <InfoRow label="📈 有価証券 含み益" value={`${data['有価証券_含み益_億'] || 0} 億円`} />
-            <InfoRow label="純資産_億" value={data['純資産_億'] || '-'} />
-            <InfoRow label="EPS (円)" value={data['EPS'] || '-'} />
-            <InfoRow label="ROE (%)" value={data['ROE_pct'] || '-'} />
-          </tbody></table>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="font-bold text-gray-800 mb-4">■ 還元・業績推移指標</h3>
-          <table className="w-full text-sm border rounded-lg overflow-hidden"><tbody>
-            <InfoRow label="配当利回り (%)" value={data['配当利回り_pct'] || '-'} />
-            <InfoRow label="配当性向 (%)" value={data['配当性向_pct'] || '-'} />
-            <InfoRow label="4年自社株買い利回り (%)" value={data['4年自社株買い利回り_pct'] || '-'} />
-            <InfoRow label="4年平均還元利回り (%)" value={data['4年平均還元利回り_pct'] || '-'} />
-            <InfoRow label="4年平均自社株買い (億)" value={data['4年平均自社株買い_億'] || '-'} />
-            <InfoRow label="4年平均総還元額 (億)" value={data['4年平均総還元額_億'] || '-'} />
-            <InfoRow label="4年自社株買い比率 (%)" value={data['4年自社株買い比率_pct'] || '-'} />
-            <InfoRow label="10年増配率 (%)" value={data['10年増配率_pct'] || '-'} />
-            <InfoRow label="10年減配率 (%)" value={data['10年減配率_pct'] || '-'} />
-            <InfoRow label="4年赤字率 (%)" value={`${data['4年赤字率_pct'] || 0}%`} />
-          </tbody></table>
-        </div>
-      </div>
-
-      {/* ★開発用JSONエキスパンダー。独自に並び替えたorderedRawDataを使用します。 */}
-      <details className="mt-8 bg-white border border-gray-200 rounded-lg p-4 cursor-pointer shadow-sm">
-        <summary className="font-bold text-gray-700">すべての生データをJSONで確認する（開発・確認用）</summary>
-        {/* indent depthを2に設定して美しくフォーマットします。 */}
-        <pre className="mt-4 text-xs text-gray-600 overflow-x-auto p-4 bg-gray-50 rounded border">
-          {JSON.stringify(orderedRawData, null, 2)}
-        </pre>
-      </details>
-
     </main>
   );
 }

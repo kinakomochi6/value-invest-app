@@ -8,6 +8,22 @@ import type { StockRecord } from "@/lib/types";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
+const materialExpressiveGridTheme = themeQuartz.withParams({
+  accentColor: "#006b57",
+  backgroundColor: "#ffffff",
+  borderColor: "#bec9c4",
+  foregroundColor: "#161d1a",
+  headerBackgroundColor: "#e3eee8",
+  headerTextColor: "#26332e",
+  oddRowBackgroundColor: "#f7faf8",
+  rowHoverColor: "#dcf5ea",
+  selectedRowBackgroundColor: "#cee9df",
+  fontFamily: "Noto Sans JP, Yu Gothic UI, sans-serif",
+  fontSize: 11,
+  headerFontWeight: 700,
+  wrapperBorderRadius: 0,
+});
+
 export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
@@ -25,7 +41,7 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
   // コードセルのレンダラー：青いリンク風テキスト（クリックは onCellClicked で処理）
   const CodeCellRenderer = useCallback((params: ICellRendererParams<StockRecord>) => {
     return (
-      <span style={{ color: "#2563eb", fontWeight: "bold", cursor: "pointer", textDecoration: "underline" }}>
+      <span className="cursor-pointer font-extrabold text-[var(--md-primary)] underline decoration-[#6bcdb2] underline-offset-2">
         {params.value}
       </span>
     );
@@ -33,7 +49,7 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
 
   const CompanyCellRenderer = useCallback((params: ICellRendererParams<StockRecord>) => {
     return (
-      <span className="cursor-pointer font-semibold text-blue-700 underline decoration-blue-300 underline-offset-2">
+      <span className="cursor-pointer font-semibold text-[var(--md-primary)] underline decoration-[#6bcdb2] underline-offset-2">
         {String(params.value ?? "-")}
       </span>
     );
@@ -43,7 +59,7 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
     const value = String(params.value ?? "-");
     const verified = value === "検証済み";
     return (
-      <span style={{ color: verified ? "#166534" : "#92400e", fontWeight: "bold", fontSize: "12px" }}>
+      <span className={`rounded-full px-2 py-1 text-[10px] font-extrabold ${verified ? "bg-[var(--md-secondary-container)] text-[var(--md-on-secondary-container)]" : "bg-[var(--md-tertiary-container)] text-[var(--md-on-tertiary-container)]"}`}>
         {value}
       </span>
     );
@@ -139,13 +155,14 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
   return (
     <div className="stock-grid h-[72dvh] min-h-[28rem] w-full md:h-[75vh]">
       <AgGridReact
-        theme={themeQuartz}
+        theme={materialExpressiveGridTheme}
         rowData={rowData}
         columnDefs={colDefs}
         defaultColDef={defaultColDef}
         rowHeight={isMobile ? 38 : 42}
         headerHeight={isMobile ? 42 : 46}
         animateRows={false}
+        tooltipShowDelay={300}
         onCellClicked={onCellClicked}
         onBodyScroll={onBodyScroll}
       />
