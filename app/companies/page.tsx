@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 import CompanyTable from "@/components/CompanyTable";
 import type { StockRecord } from "@/lib/types";
 
-const TEST_MODE = true;
-
 export default function CompaniesPage() {
   const [rowData, setRowData] = useState<StockRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -14,8 +12,7 @@ export default function CompaniesPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const url = TEST_MODE ? "/api/stocks?limit=10" : "/api/stocks";
-        const res = await fetch(url);
+        const res = await fetch("/api/stocks");
 
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -51,11 +48,6 @@ export default function CompaniesPage() {
           <h1 className="text-3xl font-bold text-gray-800">全銘柄一覧</h1>
           <p className="mt-2 text-gray-500">
             コードをクリックすると銘柄詳細ページへ移動します。
-            {TEST_MODE && (
-              <span className="ml-2 rounded bg-yellow-200 px-2 py-1 text-xs font-bold text-yellow-800">
-                テストモード: 10件表示
-              </span>
-            )}
           </p>
         </div>
 
@@ -97,4 +89,3 @@ export default function CompaniesPage() {
     </main>
   );
 }
-

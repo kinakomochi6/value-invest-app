@@ -1,49 +1,49 @@
-import { NextRequest, NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
+import { NextResponse } from "next/server";
+import { FieldPath } from "firebase-admin/firestore";
 import { db } from "@/lib/firebaseAdmin";
-import { calculatePyo, calculateValueScore, calculateTargetPrice } from "@/lib/valueLogic";
-import type { StockRecord } from "@/lib/types";
+import { buildStockListItem } from "@/lib/stockList";
 
-export async function GET(request: NextRequest) {
+const CACHE_TTL_SECONDS = 6 * 60 * 60;
+const STALE_TTL_SECONDS = 24 * 60 * 60;
+const CODE_PREFIXES = Array.from({ length: 10 }, (_, index) => String(index));
+const LISTED_STOCK_CODE_PATTERN = /^[0-9][0-9A-Z]{3}$/;
+
+const getCachedStockBucket = unstable_cache(
+  async (prefix: string) => {
+    const nextPrefix = prefix === "9" ? ":" : String(Number(prefix) + 1);
+    const snapshot = await db
+      .collection("companies")
+      .orderBy(FieldPath.documentId())
+      .startAt(prefix)
+      .endBefore(nextPrefix)
+      .get();
+
+    return snapshot.docs
+      .filter(
+        (doc) => doc.id !== "0000" && LISTED_STOCK_CODE_PATTERN.test(doc.id)
+      )
+      .map((doc) => buildStockListItem(doc.id, doc.data()));
+  },
+  ["stock-list-bucket-v1"],
+  {
+    revalidate: CACHE_TTL_SECONDS,
+    tags: ["stock-list"],
+  }
+);
+
+export async function GET() {
   try {
-    // ?limit=10 のようなクエリパラメーターでテスト時の件数を制限できる
-    const { searchParams } = new URL(request.url);
-    const limitParam = searchParams.get("limit");
-    const limit = limitParam ? parseInt(limitParam, 10) : 0; // 0 = 全件
+    const buckets = await Promise.all(CODE_PREFIXES.map(getCachedStockBucket));
+    const companies = buckets.flat();
 
-    let query: FirebaseFirestore.Query = db.collection("companies");
-    if (limit > 0) {
-      query = query.limit(limit);
-    }
-
-    const snapshot = await query.get();
-
-    const companies = snapshot.docs.map((doc) => {
-      // FirestoreのTimestamp等の特殊型をJSON安全な形に変換
-      const raw = JSON.parse(JSON.stringify(doc.data()));
-      const data: StockRecord = { ...raw, id: doc.id };
-
-      try {
-        const pyoData = calculatePyo(data);
-        const { score } = calculateValueScore(data, pyoData);
-        const { status, targetPrice, dropRate } = calculateTargetPrice(data, score, pyoData);
-        return {
-          code: doc.id,
-          ...data,
-          pyo: pyoData["P_與"],
-          bsReliability: pyoData["P_與_信頼区分"],
-          pyoScoreEligible: pyoData["P_與_スコア利用可"],
-          score,
-          status,
-          targetPrice,
-          dropRate,
-        };
-      } catch {
-        // 計算エラーが起きても他銘柄への影響なく返す
-        return { code: doc.id, ...data };
-      }
+    return NextResponse.json(companies, {
+      headers: {
+        "Cache-Control": "public, max-age=300",
+        "Vercel-CDN-Cache-Control": `public, s-maxage=${CACHE_TTL_SECONDS}, stale-while-revalidate=${STALE_TTL_SECONDS}, stale-if-error=${STALE_TTL_SECONDS}`,
+        "X-Stock-Cache-TTL": String(CACHE_TTL_SECONDS),
+      },
     });
-
-    return NextResponse.json(companies);
   } catch (error) {
     console.error("Firestore 取得エラー:", error);
     return NextResponse.json(
