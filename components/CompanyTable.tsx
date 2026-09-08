@@ -1,23 +1,23 @@
 "use client";
 
-import { useMemo, useCallback, useEffect, useRef, useState } from "react";
+import { useMemo, useCallback, useEffect, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
-import { ModuleRegistry, AllCommunityModule, themeQuartz, BodyScrollEvent, CellClickedEvent, ColDef, ICellRendererParams } from "ag-grid-community";
+import { ModuleRegistry, AllCommunityModule, themeQuartz, CellClickedEvent, ColDef, ICellRendererParams } from "ag-grid-community";
 import { useRouter } from "next/navigation";
 import type { StockRecord } from "@/lib/types";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 const materialExpressiveGridTheme = themeQuartz.withParams({
-  accentColor: "#006b57",
+  accentColor: "#005ac1",
   backgroundColor: "#ffffff",
-  borderColor: "#bec9c4",
-  foregroundColor: "#161d1a",
-  headerBackgroundColor: "#e3eee8",
-  headerTextColor: "#26332e",
-  oddRowBackgroundColor: "#f7faf8",
-  rowHoverColor: "#dcf5ea",
-  selectedRowBackgroundColor: "#cee9df",
+  borderColor: "#c4c6d0",
+  foregroundColor: "#1a1b20",
+  headerBackgroundColor: "#e5edff",
+  headerTextColor: "#283141",
+  oddRowBackgroundColor: "#f8f9ff",
+  rowHoverColor: "#e5eeff",
+  selectedRowBackgroundColor: "#d8e2ff",
   fontFamily: "Noto Sans JP, Yu Gothic UI, sans-serif",
   fontSize: 11,
   headerFontWeight: 700,
@@ -27,8 +27,6 @@ const materialExpressiveGridTheme = themeQuartz.withParams({
 export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
-  const companyPinnedRef = useRef(false);
-  const companyPinnedAtRef = useRef(0);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 640px)");
@@ -41,7 +39,7 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
   // コードセルのレンダラー：青いリンク風テキスト（クリックは onCellClicked で処理）
   const CodeCellRenderer = useCallback((params: ICellRendererParams<StockRecord>) => {
     return (
-      <span className="cursor-pointer font-extrabold text-[var(--md-primary)] underline decoration-[#6bcdb2] underline-offset-2">
+      <span className="cursor-pointer font-extrabold text-[var(--md-primary)] underline decoration-[#8aabff] underline-offset-2">
         {params.value}
       </span>
     );
@@ -49,7 +47,7 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
 
   const CompanyCellRenderer = useCallback((params: ICellRendererParams<StockRecord>) => {
     return (
-      <span className="cursor-pointer font-semibold text-[var(--md-primary)] underline decoration-[#6bcdb2] underline-offset-2">
+      <span className="cursor-pointer font-semibold text-[var(--md-primary)] underline decoration-[#8aabff] underline-offset-2">
         {String(params.value ?? "-")}
       </span>
     );
@@ -68,25 +66,21 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
   const colDefs = useMemo<ColDef<StockRecord>[]>(
     () => [
       {
-        field: "code",
-        headerName: "コード",
-        width: isMobile ? 78 : 90,
-        suppressMovable: true,
-        cellRenderer: CodeCellRenderer,
-      },
-      {
         field: "★企業名",
         headerName: "企業名",
         width: isMobile ? 136 : 190,
+        pinned: "left",
+        lockPinned: true,
         suppressMovable: true,
         tooltipField: "★企業名",
         cellRenderer: CompanyCellRenderer,
       },
       {
-        field: "bsReliability",
-        headerName: "B/S品質",
-        width: 110,
-        cellRenderer: ReliabilityCellRenderer,
+        field: "code",
+        headerName: "コード",
+        width: isMobile ? 78 : 90,
+        suppressMovable: true,
+        cellRenderer: CodeCellRenderer,
       },
       {
         colId: "pyo",
@@ -118,6 +112,12 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
       { field: "純資産_億", headerName: "純資産(億)", width: 110, type: "numericColumn" },
       { field: "★市場区分", headerName: "市場", width: 100 },
       { field: "★業種", headerName: "業種", width: 120 },
+      {
+        field: "bsReliability",
+        headerName: "B/S品質",
+        width: 110,
+        cellRenderer: ReliabilityCellRenderer,
+      },
     ],
     [CodeCellRenderer, CompanyCellRenderer, ReliabilityCellRenderer, isMobile]
   );
@@ -135,23 +135,6 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
     }
   }, [router]);
 
-  const onBodyScroll = useCallback((event: BodyScrollEvent<StockRecord>) => {
-    if (event.direction !== "horizontal") return;
-
-    const codeWidth = isMobile ? 78 : 90;
-    const shouldPinCompany = event.left >= codeWidth;
-    const canUnpin = Date.now() - companyPinnedAtRef.current > 300;
-
-    if (shouldPinCompany && !companyPinnedRef.current) {
-      companyPinnedRef.current = true;
-      companyPinnedAtRef.current = Date.now();
-      event.api.setColumnsPinned(["★企業名"], "left");
-    } else if (event.left <= 1 && companyPinnedRef.current && canUnpin) {
-      companyPinnedRef.current = false;
-      event.api.setColumnsPinned(["★企業名"], null);
-    }
-  }, [isMobile]);
-
   return (
     <div className="stock-grid h-[72dvh] min-h-[28rem] w-full md:h-[75vh]">
       <AgGridReact
@@ -164,7 +147,6 @@ export default function CompanyTable({ rowData }: { rowData: StockRecord[] }) {
         animateRows={false}
         tooltipShowDelay={300}
         onCellClicked={onCellClicked}
-        onBodyScroll={onBodyScroll}
       />
     </div>
   );

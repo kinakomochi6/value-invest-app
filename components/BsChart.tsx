@@ -32,19 +32,19 @@ export default function BsChart({ data }: { data: StockRecord }) {
           barCategoryGap="30%"
           maxBarSize={150}
         >
-          <CartesianGrid strokeDasharray="3 4" vertical={false} stroke="#dfe6e2" />
-          <XAxis dataKey="category" tick={{ fontSize: 11, fill: '#3f4945' }} axisLine={{ stroke: '#bec9c4' }} tickLine={false} />
-          <YAxis tick={{ fontSize: 10, fill: '#3f4945' }} unit=" 億" width={54} axisLine={false} tickLine={false} />
+          <CartesianGrid strokeDasharray="3 4" vertical={false} stroke="#e1e2e8" />
+          <XAxis dataKey="category" tick={{ fontSize: 11, fill: '#44474f' }} axisLine={{ stroke: '#c4c6d0' }} tickLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: '#44474f' }} unit=" 億" width={54} axisLine={false} tickLine={false} />
           <Tooltip 
-            cursor={{ fill: 'rgba(0, 107, 87, 0.07)' }}
+            cursor={{ fill: 'rgba(0, 90, 193, 0.07)' }}
             formatter={(value) => [`${value} 億円`]}
-            contentStyle={{ borderRadius: '8px', border: '1px solid #bec9c4', padding: '10px', boxShadow: '0 5px 18px rgba(18, 35, 29, 0.12)' }}
+            contentStyle={{ borderRadius: '8px', border: '1px solid #c4c6d0', padding: '10px', boxShadow: '0 5px 18px rgba(18, 27, 45, 0.12)' }}
           />
           <Legend wrapperStyle={{ paddingTop: '12px', fontSize: '11px' }} />
           
-          <Bar dataKey="総資産" stackId="a" fill="#006b57" radius={[8, 8, 0, 0]} name="総資産" />
+          <Bar dataKey="総資産" stackId="a" fill="#005ac1" radius={[8, 8, 0, 0]} name="総資産" />
           <Bar dataKey="負債" stackId="a" fill="#ba1a1a" name="負債" />
-          <Bar dataKey="純資産" stackId="a" fill="#d6ad00" radius={[8, 8, 0, 0]} name="純資産" />
+          <Bar dataKey="純資産" stackId="a" fill="#006874" radius={[8, 8, 0, 0]} name="純資産" />
           
         </BarChart>
       </ResponsiveContainer>
