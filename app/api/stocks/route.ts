@@ -25,7 +25,7 @@ const getCachedStockBucket = unstable_cache(
       )
       .map((doc) => buildStockListItem(doc.id, doc.data()));
   },
-  ["stock-list-bucket-v2"],
+  ["stock-list-bucket-v3"],
   {
     revalidate: CACHE_TTL_SECONDS,
     tags: ["stock-list"],
